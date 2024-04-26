@@ -108,7 +108,7 @@ class OctaPanel(Panel):
         box = section(layout, properties, "render_output_path_visible", "Render Output")
         if box is not None:
             all_paths = []
-            if scene.use_nodes and scene.render.use_compositing:
+            if scene.use_nodes and scene.render.use_compositing and scene.node_tree is not None:
                 node_box = box.box()
                 row = node_box.row()
                 row.label(text="File Output:", icon="FORWARD")
@@ -183,13 +183,55 @@ class OctaPanel(Panel):
                 row = layout.row()
                 row.progress(text=DownloadJobOperator.instance.get_progress_name(), factor=DownloadJobOperator.instance.get_progress())
 
-        box = section(layout, properties, "suggestions_section_visible", "Suggestions")
+        def denoise_suggestion(layout, denoise_nodes):
+            sug_box = layout.box()
+            row = sug_box.row()
+            row.label(text="Denoise Node Found!", icon="SORTTIME")
+            row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = denoise_nodes[0].name
+            row = sug_box.row()
+            row.label(text="The Denoising Node may be slow and incompatible with multilayer EXR files.")
+
+        def use_nodes_suggestion(layout):
+            sug_box = layout.box()
+            row = sug_box.row()
+            row.label(text="Use Nodes Disabled!", icon="ERROR")
+            row = sug_box.row()
+            row.label(text="To use output paths Use Nodes must be enabled.")
+            row = sug_box.row()
+            row.prop(scene, "use_nodes", text="Use Nodes")
+
+        def use_compositing_suggestion(layout):
+            sug_box = layout.box()
+            row = sug_box.row()
+            row.label(text="Use Compositing Disabled!", icon="ERROR")
+            row = sug_box.row()
+            row.label(text="To use output paths Use Compositing must be enabled.")
+            row = sug_box.row()
+            row.prop(scene.render, "use_compositing", text="Use Compositing")
+
+        def suggestion_draw(layout, suggestion_count=0, draw=True):
+            if scene.node_tree:
+                denoise_nodes = [node for node in scene.node_tree.nodes if node.type == 'DENOISE']
+                if len(denoise_nodes) > 0:
+                    if draw:
+                        denoise_suggestion(layout, denoise_nodes)
+                    suggestion_count += 1
+            if not scene.use_nodes:
+                if draw:
+                    use_nodes_suggestion(layout)
+                suggestion_count += 1
+            if not scene.render.use_compositing:
+                if draw:
+                    use_compositing_suggestion(layout)
+                suggestion_count += 1
+            return suggestion_count
+
+        suggestion_count = 0
+        suggestion_count = suggestion_draw(box, suggestion_count, False)
+
+        box = section(layout, properties, "suggestions_section_visible", f"{suggestion_count} Suggestions")
         if box is not None:
-            denoise_nodes = [node for node in scene.node_tree.nodes if node.type == 'DENOISE']
-            if len(denoise_nodes) > 0:
-                sug_box = box.box()
-                row = sug_box.row()
-                row.label(text="Denoise Node Found!", icon="SORTTIME")
-                row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = denoise_nodes[0].name
-                row = sug_box.row()
-                row.label(text="The Denoising Node may be slow and incompatible with multilayer EXR files.")
+            if suggestion_count == 0:
+                box.label(text="No Suggestions", icon="INFO")
+            else:
+                suggestion_count = suggestion_draw(box, suggestion_count, True)
