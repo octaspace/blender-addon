@@ -1,5 +1,6 @@
 import bpy
 import os
+from pathlib import Path
 from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
 from .download_job_operator import DownloadJobOperator
@@ -38,6 +39,7 @@ class SelectNodeOperator(bpy.types.Operator):
         node = context.scene.node_tree.nodes.get(self.node_name)
         for n in context.scene.node_tree.nodes:
             n.select = True if n == node else False
+        context.scene.node_tree.nodes.active = node
         return {'FINISHED'}
 
 
@@ -105,28 +107,54 @@ class OctaPanel(Panel):
 
         box = section(layout, properties, "render_output_path_visible", "Render Output")
         if box is not None:
-            render_passes = get_all_render_passes()
-            for render_pass_name, render_pass in render_passes.items():
-                for file_name, file_ext in render_pass["files"].items():
-                    file_full_name = f'{file_name}/{str(0).zfill(4)}.{file_ext}'
-                    row = box.row()
-                    row.label(text=file_full_name)
-                    row.label(text=render_pass_name, icon="NODE")
-                    row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = render_pass_name
+            all_paths = []
+            scene = context.scene
+            if scene.use_nodes:
+                for node in scene.node_tree.nodes:
+                    if node.type == 'OUTPUT_FILE':
+                        node_box = box.box()
+                        row = node_box.row()
+                        row.label(text="File Output Node:", icon="FORWARD")
+                        row.label(text=node.name, icon="NODE")
+                        row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = node.name
+                        # row.prop(node, "base_path", text="")
 
-            file_ext = IMAGE_TYPE_TO_EXTENSION.get(bpy.context.scene.render.image_settings.file_format, 'unknown')
-            row = box.row()
-            row.label(text=f'{str(0).zfill(4)}.{file_ext}')
+                        bp = node.base_path
+                        formatted_base_path = bp.rstrip('/\\') + ('\\' if bp.count('\\') > bp.count('/') else '/')
 
-            """
-            render_outputs = get_all_render_output_paths(context)
-            for path, node in render_outputs:
-                row = box.row()
-                row.label(text=path)
-                if node:
-                    row.label(text=node.name, icon="NODE")
-                    row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = node.name
-                    """
+                        for slot in node.file_slots:
+                            row = node_box.row(align=True)
+                            # row.label(text=formatted_base_path)
+                            file_ext = IMAGE_TYPE_TO_EXTENSION.get(node.format.file_format, 'unknown')
+                            row.label(text="", icon="URL")
+                            row.label(text=f'/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}')
+
+                            row.prop(slot, "path", text="")
+
+                            full_path = slot.path
+                            if full_path in all_paths:
+                                row = node_box.row()
+                                row.label(text=f'Output Path "{str(full_path)}" already in use!', icon="ERROR")
+                            all_paths.append(full_path)
+                            # row.operator(SelectNodeOperator.bl_idname, text="", icon="FILE_FOLDER").node_name = node.name
+
+            node_box = box.box()
+            row = node_box.row()
+            row.label(text="File Output:", icon="FORWARD")
+
+            if scene.use_nodes:
+                row.label(text="Composite", icon="NODE_COMPOSITING")
+            else:
+                row.label(text="Output", icon="OUTPUT")
+
+            composite_nodes = [node for node in scene.node_tree.nodes if node.type == 'COMPOSITE']
+            if len(composite_nodes) > 0:
+                row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = composite_nodes[0].name
+
+            file_ext = IMAGE_TYPE_TO_EXTENSION.get(scene.render.image_settings.file_format, 'unknown')
+            row = node_box.row(align=True)
+            frame_suffix = f'/{str(scene.frame_current).zfill(4)}.{file_ext}'
+            row.label(text=frame_suffix, icon="URL")
 
         # download stuff
         box = section(layout, properties, 'download_section_visible', "Download")

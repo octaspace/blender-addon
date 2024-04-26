@@ -20,6 +20,13 @@ from .octa.octa_panel import OctaPanel, SelectNodeOperator
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
 
+class Octa_Addon_Preferences(bpy.types.AddonPreferences):
+    bl_idname = __name__
+
+    def draw(self, context):
+        layout = self.layout     
+        layout.operator("preferences.addon_refresh", text="Update Addon", icon="FILE_REFRESH")
+
 # register
 classes = (
     OctaProperties,
@@ -27,6 +34,7 @@ classes = (
     OctaPanel,
     SelectNodeOperator,
     DownloadJobOperator,
+    Octa_Addon_Preferences
 )
 
 

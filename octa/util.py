@@ -25,37 +25,35 @@ class RenderPass(TypedDict):
 
 
 def get_all_output_file_nodes():
-    scenes = bpy.data.scenes
-    nodes = []
-    for scene in scenes:
-        if not scene.use_nodes:
-            continue
+    scene = bpy.context.scene
+    output_nodes = []
 
+    if scene.use_nodes:
         for node in scene.node_tree.nodes:
             if node.type == 'OUTPUT_FILE':
-                nodes.append(node)
+                output_nodes.append(node)
 
-    return nodes
-
+    return output_nodes
 
 def get_all_render_passes() -> dict[str, RenderPass]:
-    nodes = get_all_output_file_nodes()
+    output_nodes = get_all_output_file_nodes()
     render_passes = {}
-    for node in nodes:
+
+    for node in output_nodes:
         name = node.name
-        files = {}  # dict of file_name => extension
-        node_file_format = node.format.file_format
-        for file_slot in node.file_slots:
-            if file_slot.use_node_format:
-                file_format = node_file_format
-            else:
-                file_format = file_slot.format.file_format
-            file_path = file_slot.path
-            files[file_path] = IMAGE_TYPE_TO_EXTENSION.get(file_format, 'unknown')
+        files = {}
+
+        default_format = node.format.file_format
+
+        for slot in node.file_slots:
+            format_to_use = default_format if slot.use_node_format else slot.format.file_format
+            path = slot.path
+            extension = IMAGE_TYPE_TO_EXTENSION.get(format_to_use, 'unknown')
+            files[path] = extension
 
         render_passes[name] = {
             "name": name,
-            "files": files,
+            "files": files
         }
 
     return render_passes
