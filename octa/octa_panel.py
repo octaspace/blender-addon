@@ -83,12 +83,6 @@ class OctaPanel(Panel):
             row.prop(properties, "frame_start")
             row.prop(properties, "frame_end")
             row.enabled = True
-
-        box = layout.box()
-        row = box.row()
-        row.prop(properties, "octa_host")
-        # row = box.row()
-        # row.prop(properties, "upload_threads")
         row = box.row()
         row.prop(properties, "batch_size")
 

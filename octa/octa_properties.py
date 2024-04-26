@@ -40,7 +40,7 @@ class OctaProperties(PropertyGroup):
     match_scene: bpy.props.BoolProperty(name="Match Scene", description="Match Scene", default=True)
     batch_size: bpy.props.IntProperty(name="Batch Size", description="Batch Size", default=1, min=1, max=100)
     render_output_path: bpy.props.StringProperty(name="Render Output Path", description="Render Output Path", default="")
-    octa_host: bpy.props.StringProperty(name="Octa Host", description="The Host of the Web UI (e.g. http://127.0.0.1:51800)", default="")
+    octa_host: bpy.props.StringProperty(name="Octa Host", description="The Host of the Web UI (e.g. http://127.0.0.1:51800)", default="http://34.147.146.4/")
     upload_threads: bpy.props.IntProperty(name="Upload Threads", description="How many threads to use when uploading.", default=1, min=1, max=1)
     render_format: bpy.props.EnumProperty(name="Render Format", description="Render Format", items=[
         ("PNG", "PNG", "PNG"),
