@@ -63,7 +63,7 @@ class OctaPanel(Panel):
 
     def draw(self, context):
         properties = context.scene.octa_properties
-
+        scene = context.scene
         layout = self.layout
 
         # render stuff
@@ -108,8 +108,25 @@ class OctaPanel(Panel):
         box = section(layout, properties, "render_output_path_visible", "Render Output")
         if box is not None:
             all_paths = []
-            scene = context.scene
-            if scene.use_nodes:
+            if scene.use_nodes and scene.render.use_compositing:
+                node_box = box.box()
+                row = node_box.row()
+                row.label(text="File Output:", icon="FORWARD")
+
+                if scene.use_nodes:
+                    row.label(text="Composite", icon="NODE_COMPOSITING")
+                else:
+                    row.label(text="Output", icon="OUTPUT")
+
+                composite_nodes = [node for node in scene.node_tree.nodes if node.type == 'COMPOSITE']
+                if len(composite_nodes) > 0:
+                    row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = composite_nodes[0].name
+
+                file_ext = IMAGE_TYPE_TO_EXTENSION.get(scene.render.image_settings.file_format, 'unknown')
+                row = node_box.row(align=True)
+                frame_suffix = f'/{str(scene.frame_current).zfill(4)}.{file_ext}'
+                row.label(text=frame_suffix, icon="URL")
+
                 for node in scene.node_tree.nodes:
                     if node.type == 'OUTPUT_FILE':
                         node_box = box.box()
@@ -137,24 +154,16 @@ class OctaPanel(Panel):
                                 row.label(text=f'Output Path "{str(full_path)}" already in use!', icon="ERROR")
                             all_paths.append(full_path)
                             # row.operator(SelectNodeOperator.bl_idname, text="", icon="FILE_FOLDER").node_name = node.name
-
-            node_box = box.box()
-            row = node_box.row()
-            row.label(text="File Output:", icon="FORWARD")
-
-            if scene.use_nodes:
-                row.label(text="Composite", icon="NODE_COMPOSITING")
             else:
-                row.label(text="Output", icon="OUTPUT")
+                if not scene.use_nodes:
+                    row = box.row()
+                    row.label(text="Use Nodes must be enabled:", icon="ERROR")
+                    row.prop(scene, "use_nodes", text="Use Nodes")
 
-            composite_nodes = [node for node in scene.node_tree.nodes if node.type == 'COMPOSITE']
-            if len(composite_nodes) > 0:
-                row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = composite_nodes[0].name
-
-            file_ext = IMAGE_TYPE_TO_EXTENSION.get(scene.render.image_settings.file_format, 'unknown')
-            row = node_box.row(align=True)
-            frame_suffix = f'/{str(scene.frame_current).zfill(4)}.{file_ext}'
-            row.label(text=frame_suffix, icon="URL")
+                if not scene.render.use_compositing:
+                    row = box.row()
+                    row.label(text="Use Compositing must be enabled:", icon="ERROR")
+                    row.prop(scene.render, "use_compositing", text="Use Compositing")
 
         # download stuff
         box = section(layout, properties, 'download_section_visible', "Download")
@@ -173,3 +182,14 @@ class OctaPanel(Panel):
             if DownloadJobOperator.get_running():
                 row = layout.row()
                 row.progress(text=DownloadJobOperator.instance.get_progress_name(), factor=DownloadJobOperator.instance.get_progress())
+
+        box = section(layout, properties, "suggestions_section_visible", "Suggestions")
+        if box is not None:
+            denoise_nodes = [node for node in scene.node_tree.nodes if node.type == 'DENOISE']
+            if len(denoise_nodes) > 0:
+                sug_box = box.box()
+                row = sug_box.row()
+                row.label(text="Denoise Node Found!", icon="SORTTIME")
+                row.operator(SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF").node_name = denoise_nodes[0].name
+                row = sug_box.row()
+                row.label(text="The Denoising Node may be slow and incompatible with multilayer EXR files.")

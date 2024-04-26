@@ -62,3 +62,4 @@ class OctaProperties(PropertyGroup):
     advanced_section_visible: get_section_toggle_type(name="Advanced Section Visible")
     render_output_path_visible: get_section_toggle_type(name="Render Output Section Visible")
     download_section_visible: get_section_toggle_type(name="Download Section Visible")
+    suggestions_section_visible: get_section_toggle_type(name="Suggestions Section Visible")
