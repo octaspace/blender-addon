@@ -2,9 +2,20 @@ import threading
 from .web_api_base import WebApiBase, FileWithCallback, FileSliceWithCallback
 from .web_ui import WebUi
 from traceback import format_exc
+from dataclasses import dataclass
+from multiprocessing.pool import ThreadPool
 import os
 import math
 import time
+import mmap
+
+
+@dataclass
+class Upload:
+    url: str
+    offset: int
+    size: int
+    index: int
 
 
 class FileUpload:
@@ -13,16 +24,17 @@ class FileUpload:
         self.job_id = job_id
         self.retries = retries
         self.thread_count = thread_count  # TODO: for the future, does nothing atm
+        self.progress_callback = progress_callback
         # TODO: possibly scale with file size
         self.part_size = 25000000  # 25 MB
 
-        self.progress = 0
-        self.finished = False
-        self.progress_callback = progress_callback
-
+        self.mapped_file: mmap.mmap = None
         self.thread = None
         self.success = False
         self.reason = ''
+
+        self.uploads: list[Upload] = []
+        self.etags: dict[int, str] = {}
 
     def start(self):
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -33,7 +45,6 @@ class FileUpload:
 
     def _callback_single(self, offset, total_size):
         progress = offset / total_size
-        self.progress = progress
         if self.progress_callback:
             self.progress_callback(progress)
 
@@ -57,60 +68,72 @@ class FileUpload:
             self.success = False
             self.reason = format_exc()
 
-    def run_inner(self):
-        with open(self.local_path, 'rb') as f:
-            f.seek(0, os.SEEK_END)
-            file_size = f.tell()
+    def upload_task(self, upload):
+        try:
+            # self.set_progress_name(f"Uploading part {upload.index}/{self.upload_count}")
+            ul_start = int(time.time() * 1000)
+            response = WebApiBase.request_with_retries('PUT', upload.url, headers={
+                'Content-Length': upload.size
+            }, body=self.mapped_file[upload.offset:upload.offset + upload.size], retries=self.retries)
+            ul_end = int(time.time() * 1000)
 
-        part_count = math.ceil(file_size / self.part_size)
-        print(f"part count: {part_count}, file_size: {file_size}, part_size: {self.part_size}")
-        etags = {}
+            self.progress_callback(upload.index / len(self.uploads))
+            self.etags[upload.index + 1] = response.headers['ETag']
+            print(f"Uploaded part {upload.index} | UL Time {ul_end - ul_start}ms | Size {upload.size / 1000 / 1000:.2f}MB")
+        except:
+            print(f"Failed to upload part{upload.index}: {format_exc()}")
 
+    def get_upload_data(self, part_count):
         data = WebUi.get_job_input_multipart_upload_info_full(self.job_id, part_count)
         key = data['key']
         bucket = data['bucket']
         upload_id = data['upload_id']
         links = data['links']
-        time.sleep(5)
 
-        if part_count > 1:
-            with open(self.local_path, 'rb') as f:
-                part_number = 1
-                running = True
-                while running:
-                    offset = f.tell()
-                    part_size = self.part_size
-                    if offset + self.part_size > file_size:
-                        part_size = file_size - offset
-                        running = False
+        return key, bucket, upload_id, links
 
-                    print(f"part {part_number} with offset {offset} and size {part_size}")
+    def run_inner(self):
+        self.uploads = []
+        self.etags = {}
 
-                    def _callback(fake_offset, fake_size):
-                        progress = (offset + fake_offset) / file_size
-                        self.progress = progress
-                        if self.progress_callback:
-                            self.progress_callback(progress)
+        with open(self.local_path, 'rb') as f:
+            f.seek(0, os.SEEK_END)
+            file_size = f.tell()
+            f.seek(0)
 
-                    file_slice = FileSliceWithCallback(f, offset, part_size, _callback)
-                    url = links[part_number - 1]  # WebUi.get_multipart_signed_url(key, bucket, upload_id, part_number)
-                    response = WebApiBase.request_with_retries('PUT', url, headers={
-                        'Content-Length': part_size
-                    }, body=file_slice, retries=self.retries)
+            self.mapped_file = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
 
-                    etags[part_number] = response.headers['ETag']
+            part_count = math.ceil(file_size / self.part_size)
+            print(f"part count: {part_count}, file_size: {file_size}, part_size: {self.part_size}")
 
-                    part_number += 1
-        else:
-            url = WebUi.get_multipart_signed_url(key, bucket, upload_id, 1)
-            etag = self.run_single_upload(url)
-            if etag is not None:
-                etags[1] = etag
+            key, bucket, upload_id, links = self.get_upload_data(part_count)
 
-        if part_count == len(etags):
-            WebUi.complete_job_input_multipart_upload(key, bucket, upload_id, etags)
-            self.success = True
-        else:
-            WebUi.abort_job_input_multipart_upload(key, bucket, upload_id)
-            self.reason = f"expected etag count to be {part_count} but it was {len(etags)}"
-            self.success = False
+            time.sleep(5)  # give cloudflare time to actually be ready for upload
+
+            if part_count > 1:
+
+                for part_index in range(part_count):
+                    offset = self.part_size * part_index
+                    size = self.part_size
+                    if offset + size > file_size:
+                        size = file_size - offset
+                    upload = Upload(links[part_index], offset, size, part_index)
+                    self.uploads.append(upload)
+
+                print(f"uploading with {self.thread_count} threads")
+                pool = ThreadPool(self.thread_count)
+                pool.map(self.upload_task, self.uploads)
+                pool.close()
+            else:
+                url = WebUi.get_multipart_signed_url(key, bucket, upload_id, 1)
+                etag = self.run_single_upload(url)
+                if etag is not None:
+                    self.etags[1] = etag
+
+            if part_count == len(self.etags):
+                WebUi.complete_job_input_multipart_upload(key, bucket, upload_id, self.etags)
+                self.success = True
+            else:
+                WebUi.abort_job_input_multipart_upload(key, bucket, upload_id)
+                self.reason = f"expected etag count to be {part_count} but it was {len(self.etags)}"
+                self.success = False
