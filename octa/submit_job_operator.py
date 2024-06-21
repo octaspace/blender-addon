@@ -193,6 +193,8 @@ class SubmitJobOperator(Operator):
             job_properties.octa_host = octa_host
             job_properties.upload_threads = properties.upload_threads
             job_properties.batch_size = properties.batch_size
+            job_properties.blender_version = properties.blender_version
+            
         except:
             raise
 
@@ -257,7 +259,9 @@ class SubmitJobOperator(Operator):
                     'end': end,
                     'render_passes': get_all_render_passes(),
                     'render_format': job_properties.render_format,
-                    'version': '1712359928'
+                    'version': '1712359928',
+                    'render_engine': bpy.context.scene.render.engine,
+                    'blender_version': job_properties.blender_version
                 },
                 "operations": get_operations(os.path.basename(job_properties.temp_blend_name), job_properties.render_format, job_properties.max_thumbnail_size)
             })

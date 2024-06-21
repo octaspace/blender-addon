@@ -26,6 +26,7 @@ class SubmitJobProperties:
     max_thumbnail_size: int
     generate_video: bool
     advanced_section_visible: bool
+    blender_version: str
 
 
 def get_section_toggle_type(name):
@@ -42,6 +43,7 @@ class OctaProperties(PropertyGroup):
     render_output_path: bpy.props.StringProperty(name="Render Output Path", description="Render Output Path", default="")
     octa_host: bpy.props.StringProperty(name="Octa Host", description="The Host of the Web UI (e.g. http://127.0.0.1:51800)", default="http://34.147.146.4/")
     upload_threads: bpy.props.IntProperty(name="Upload Threads", description="How many threads to use when uploading.", default=1, min=1, max=1)
+
     render_format: bpy.props.EnumProperty(name="Render Format", description="Render Format", items=[
         ("PNG", "PNG", "PNG"),
         ("JPEG", "JPEG", "JPEG"),
@@ -50,6 +52,9 @@ class OctaProperties(PropertyGroup):
         # ("OPEN_EXR_MULTILAYER", "OpenEXR MultiLayer", "OpenEXR MultiLayer"),
         # ("BMP", "BMP", "BMP"),
     ], default="PNG", )
+
+    blender_version: bpy.props.EnumProperty(name="Blender Version", description="Blender Version", items=[("blender41", "4.1", "4.1"),("blender42", "4.2", "4.2")], default="blender41")
+
     max_thumbnail_size: bpy.props.IntProperty(name="Max Thumbnail Size", description="Max Thumbnail Size", default=1024, min=512, max=4096, subtype="PIXEL")
     generate_video: bpy.props.BoolProperty(name="Generate Video", description="Generate Video", default=False)
 
