@@ -11,18 +11,14 @@ class WebUi(WebApiBase):
 
     @classmethod
     def get_version(cls):
-        return 42  # TODO: to ensure we dont run an outdated plugin
+        # TODO: to ensure we dont run an outdated plugin
+        url = f'{cls.host}/api/v1/blender_plugin_version'
+        response = cls.request_with_retries('GET', url)
+        return int(response.data.decode())
 
     @classmethod
     def get_job_input_multipart_upload_info_full(cls, job_id, file_count: int) -> dict:
         url = f'{cls.host}/api/v1/get_job_input_multipart_upload_info_full/{job_id}/{file_count}'
-        response = cls.request_with_retries('GET', url)
-        text = response.data.decode()
-        return json.loads(text)
-
-    @classmethod
-    def get_job_input_multipart_upload_info(cls, job_id) -> dict:
-        url = f'{cls.host}/api/v1/get_job_input_multipart_upload_info/{job_id}'
         response = cls.request_with_retries('GET', url)
         text = response.data.decode()
         return json.loads(text)
