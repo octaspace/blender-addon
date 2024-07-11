@@ -42,7 +42,7 @@ class FileUpload:
         try:
             response = WebApiBase.request_with_retries('PUT', url, headers={
                 'Content-Length': ff.size
-            }, body=ff, retries=self.retries)
+            }, data=ff, retries=self.retries)
             self.success = True
             return response.headers['ETag']
         except:
@@ -95,7 +95,7 @@ class FileUpload:
                     url = links[part_number - 1]  # WebUi.get_multipart_signed_url(key, bucket, upload_id, part_number)
                     response = WebApiBase.request_with_retries('PUT', url, headers={
                         'Content-Length': part_size
-                    }, body=file_slice, retries=self.retries)
+                    }, data=file_slice, retries=self.retries)
 
                     etags[part_number] = response.headers['ETag']
 

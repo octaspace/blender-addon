@@ -1,40 +1,42 @@
-import urllib3
 import time
 import random
 import os
+import requests
 
 
 class WebApiBase:
-    _urllib_pool: urllib3.PoolManager = None
+    requests_session: requests.Session = None
 
     @classmethod
-    def get_pool_manager(cls):
-        if cls._urllib_pool is None:
-            timeout = urllib3.util.Timeout(connect=15, read=15)
-            cls._urllib_pool = urllib3.PoolManager(num_pools=32, timeout=timeout)
-        return cls._urllib_pool
+    def get_session(cls) -> requests.Session:
+        if cls.requests_session is None:
+            cls.requests_session = requests.Session()
+        return cls.requests_session
 
     @classmethod
-    def request_with_retries(cls, method, url, fields=None, headers=None, retries=3, **kwargs) -> urllib3.HTTPResponse:
-        pool = cls.get_pool_manager()
+    def request_with_retries(cls, method, url, *, retries=3, **kwargs) -> requests.Response:
+        session = cls.get_session()
         tries = 0
         while True:
             tries += 1
             try:
-                if 'body' in kwargs:
-                    if hasattr(kwargs['body'], 'seek'):
-                        kwargs['body'].seek(0)
-                response = pool.request(method, url, fields, headers, **kwargs)
-                if 200 <= response.status <= 299:
+                if 'data' in kwargs:
+                    if hasattr(kwargs['data'], 'seek'):
+                        kwargs['data'].seek(0)
+                if 'timeout' not in kwargs:
+                    kwargs['timeout'] = (15, 15)
+                response = session.request(method, url, **kwargs)
+                # response = pool.request(method, url, fields, headers, **kwargs)
+                if 200 <= response.status_code <= 299:
                     return response
-                elif 400 <= response.status <= 499:
+                elif 400 <= response.status_code <= 499:
                     # no retries on err 4xx
                     tries = 100000
-                    err = f"{method} to {url} failed with status {response.status}, content: {response.data[:1000]}"
+                    err = f"{method} to {url} failed with status {response.status_code}, content: {response.content[:1000]}"
                     print(err)
                     raise Exception(err)
                 else:
-                    err = f"{method} to {url} failed with status {response.status}, content: {response.data[:1000]}"
+                    err = f"{method} to {url} failed with status {response.status_code}, content: {response.content[:1000]}"
                     print(err)
                     if tries >= retries:
                         raise Exception(err)

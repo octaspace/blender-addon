@@ -13,7 +13,7 @@ from ..blender_asset_tracer.pack import zipped
 from ..blender_asset_tracer.blendfile import close_all_cached
 from .octa_properties import SubmitJobProperties
 from .web_ui import WebUi
-from .util import get_all_render_passes
+from .util import get_all_render_passes, unpack_octa_farm_config
 import webbrowser
 
 
@@ -168,9 +168,11 @@ class SubmitJobOperator(Operator):
                 self.report({'ERROR'}, f'Total frame count ({frame_count}) is not divisible by batch size {properties.batch_size}. {suggestion}')
                 fail_validation = True
 
-            octa_host = properties.octa_host
+            octa_farm_config = unpack_octa_farm_config(properties.octa_farm_config)
+            octa_host, farm_cookie, qm_token = octa_farm_config
+
             octa_host = octa_host.rstrip('/')
-            WebUi.set_host(octa_host)
+            WebUi.set_config(octa_host, farm_cookie)
             if len(octa_host) <= 0:
                 self.report({'ERROR'}, 'Octa host is not set')
                 fail_validation = True
@@ -190,11 +192,11 @@ class SubmitJobOperator(Operator):
             job_properties.max_thumbnail_size = properties.max_thumbnail_size
             job_properties.render_format = properties.render_format  # bpy.context.scene.render.image_settings.file_format
             job_properties.render_output_path = properties.render_output_path
-            job_properties.octa_host = octa_host
+            job_properties.octa_farm_config = octa_farm_config
             job_properties.upload_threads = properties.upload_threads
             job_properties.batch_size = properties.batch_size
             job_properties.blender_version = properties.blender_version
-            
+
         except:
             raise
 
@@ -229,13 +231,15 @@ class SubmitJobOperator(Operator):
 
             set_thread_count = job_properties.upload_threads
 
+            octa_host, farm_cookie, qm_token = job_properties.octa_farm_config
+
             # zip_size = os.stat(temp_zip_name).st_size
             # min_chunk_size = 1024 * 1024
             # max_chunk_size = 1024 * 1024 * 20
             # chunk_size = max(min_chunk_size, min(max_chunk_size, (zip_size // set_thread_count) + 1))
             # thread_count = max(1, (zip_size // chunk_size) + 1)
 
-            upload = FileUpload(temp_zip_name, str(job_id), thread_count=set_thread_count, progress_callback=self.set_progress)
+            upload = FileUpload(farm_cookie, temp_zip_name, str(job_id), thread_count=set_thread_count, progress_callback=self.set_progress)
             upload.start()
             upload.join()
             if not upload.success:
@@ -249,7 +253,7 @@ class SubmitJobOperator(Operator):
                 end = job_properties.frame_start + (total_frames // job_properties.batch_size) - 1
             else:
                 end = job_properties.frame_end
-            Sarfis.node_job(job_properties.octa_host, {
+            Sarfis.node_job(octa_host, qm_token, {
                 "job_data": {
                     'id': job_id,
                     'name': job_properties.job_name,
@@ -268,7 +272,7 @@ class SubmitJobOperator(Operator):
 
             bpy.context.scene.octa_properties.dl_job_id = str(job_id)
 
-            webbrowser.open_new(f"{job_properties.octa_host}/project/{job_id}")
+            webbrowser.open_new(f"{octa_host}/project/{job_id}")
         finally:
             self.set_progress_name("")
             self.set_progress(1)

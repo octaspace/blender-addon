@@ -66,6 +66,9 @@ class OctaPanel(Panel):
         scene = context.scene
         layout = self.layout
 
+        # config string
+        box = layout.box()
+        box.prop(properties, "octa_farm_config")
         # render stuff
         box = layout.box()
         box.prop(properties, "job_name")

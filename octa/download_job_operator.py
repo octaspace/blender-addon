@@ -7,8 +7,9 @@ from traceback import format_exc
 from .octa_properties import DownloadJobProperties
 from .web_ui import WebUi
 from .modal_operator import ModalOperator
-from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION
+from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION, unpack_octa_farm_config
 from .web_api_base import WebApiBase
+from .sarfis import Sarfis
 import time
 
 
@@ -42,22 +43,20 @@ class DownloadJobOperator(ModalOperator):
 
         properties.job_id = int(job_id)
 
-        octa_host = props.octa_host
+        octa_farm_config = unpack_octa_farm_config(props.octa_farm_config)
+        octa_host, farm_cookie, qm_token = octa_farm_config
+
         octa_host = octa_host.rstrip('/')
-        WebUi.set_host(octa_host)
-        if len(octa_host) <= 0:
-            self.report({'ERROR'}, 'Octa host is not set')
+        WebUi.set_config(octa_host, farm_cookie)
+        try:
+            # TODO: use this in future once hooked up
+            WebUi.get_version()
+            # TODO: get supported plugin version instead and fail if not supported anymore
+            response = requests.get(octa_host, timeout=15)
+        except:
+            self.report({'ERROR'}, 'Octa host is not reachable')
             fail_validation = True
-        else:
-            try:
-                # TODO: use this in future once hooked up
-                WebUi.get_version()
-                # TODO: get supported plugin version instead and fail if not supported anymore
-                response = requests.get(octa_host, timeout=15)
-            except:
-                self.report({'ERROR'}, 'Octa host is not reachable')
-                fail_validation = True
-        properties.octa_host = octa_host
+        properties.octa_farm_config = octa_farm_config
 
         properties.output_path = props.dl_output_path
         properties.download_threads = props.dl_threads
@@ -70,17 +69,17 @@ class DownloadJobOperator(ModalOperator):
     def download_task(self, download):
         try:
             self.set_progress_name(f"Downloading file {download.index}/{self.download_count}")
-            dl_start = int(time.time()*1000)
+            dl_start = int(time.time() * 1000)
             response = WebApiBase.request_with_retries('GET', download.url)
-            dl_end = int(time.time()*1000)
-            
-            save_start = int(time.time()*1000)
+            dl_end = int(time.time() * 1000)
+
+            save_start = int(time.time() * 1000)
             with open(download.local_path, 'wb') as f:
-                f.write(response.data)
-            save_end = int(time.time()*1000)
-            
+                f.write(response.content)
+            save_end = int(time.time() * 1000)
+
             self.set_progress(download.index / self.download_count)
-            print(f"Downloaded {download.url} to {download.local_path}\nDL Time {dl_end - dl_start}ms | Save Time {save_end - save_start}ms | Size {len(response.data)/1000/1000:.2f}MB")
+            print(f"Downloaded {download.url} to {download.local_path}\nDL Time {dl_end - dl_start}ms | Save Time {save_end - save_start}ms | Size {len(response.content) / 1000 / 1000:.2f}MB")
         except:
             print(f"Failed to download {download.url}: {format_exc()}")
 
@@ -89,8 +88,8 @@ class DownloadJobOperator(ModalOperator):
         self.set_progress(0)
 
         job_id = properties.job_id
-        octa_host = properties.octa_host
-        job = requests.get(f'{octa_host}/qm/api/job_details?job_id={job_id}').json().get('body')
+        octa_host, farm_cookie, qm_token = properties.octa_farm_config
+        job = Sarfis.get_job_details(octa_host, qm_token, job_id)  # requests.get(f'{octa_host}/qm/api/job_details?job_id={job_id}').json().get('body')
         render_passes = job.get('render_passes', None)
         if render_passes is None:
             render_passes = get_all_render_passes()  # get from file if not present on job and hope for the best
