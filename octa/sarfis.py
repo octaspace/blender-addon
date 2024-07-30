@@ -43,6 +43,5 @@ class UberApi:
 class Sarfis:
     @classmethod
     def node_job(cls, host, job):
-        time.sleep(5)
         result = UberApi.call(host, {'node_job': job})
         return result['node_job']

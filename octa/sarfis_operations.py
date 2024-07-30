@@ -44,10 +44,10 @@ def download_unzip():
     }
 
 
-def blender41_exe(blend_file_name, render_format="PNG"):
+def blender(blend_file_name, render_format="PNG"):
     return {
         'operation': 'exe',
-        'arguments': {'input': '{node_blender41}'},
+        'arguments': {'input': '{eval(f"node_{job_blender_version}")}'},
         'variables': [
             '-b',
             '{node_folder}/{job_id}/input/' + blend_file_name,
@@ -66,32 +66,6 @@ def blender41_exe(blend_file_name, render_format="PNG"):
             '--',
             '-enable_devices',
             '[{str(node_gpu_index).replace(",", "_")}]',
-        ]
-    }
-
-
-def blender40_exe(blend_file_name, render_format="PNG"):
-    return {
-        'operation': 'exe',
-        'arguments': {'input': 'blender'},
-        'variables': [
-            '-b',
-            '{node_folder}/{job_id}/input/' + blend_file_name,
-            '-y',
-            '-P',
-            '/srv/sarfis-pro-node/assets/scripts/blender/octa.py',  # needs to be absolute path
-            '-s',
-            '{job_start + (node_task-job_start) * job_batch_size}',
-            '-e',
-            '{job_start + (node_task-job_start+1) * job_batch_size - 1}',
-            '-F',
-            render_format,
-            '-o',
-            '{node_folder}/{job_id}/{str(node_gpu_index).replace(",", "_")}/output/',
-            '-a',
-            '--',
-            '-enable_devices',
-            '[{node_gpu_index}]',
         ]
     }
 
@@ -130,7 +104,7 @@ def s3_upload():
 def get_operations(blend_file_name, render_format, max_thumbnail_size):
     return [
         download_unzip(),
-        blender41_exe(blend_file_name=blend_file_name, render_format=render_format),
+        blender(blend_file_name=blend_file_name, render_format=render_format),
         thumbnails(max_size=max_thumbnail_size),
         s3_upload(),
     ]

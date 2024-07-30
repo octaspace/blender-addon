@@ -44,12 +44,16 @@ def get_all_render_passes() -> dict[str, RenderPass]:
         files = {}
 
         default_format = node.format.file_format
-
+            
         for slot in node.file_slots:
             format_to_use = default_format if slot.use_node_format else slot.format.file_format
             path = slot.path
             extension = IMAGE_TYPE_TO_EXTENSION.get(format_to_use, 'unknown')
-            files[path] = extension
+            if default_format == 'OPEN_EXR_MULTILAYER':
+                files['MultiLayer'] = extension
+                break
+            else:
+                files[path] = extension
 
         render_passes[name] = {
             "name": name,

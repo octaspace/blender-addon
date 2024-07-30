@@ -152,6 +152,8 @@ class OctaPanel(Panel):
             row.prop(properties, "generate_video")
             row = box.row()
             row.prop(properties, "max_thumbnail_size")
+            row = box.row()
+            row.prop(properties, "blender_version")
 
         box = section(layout, properties, "scene_visibility_visible", "Scene Visibility")
         if box is not None:

@@ -71,7 +71,6 @@ class FileUpload:
         bucket = data['bucket']
         upload_id = data['upload_id']
         links = data['links']
-        time.sleep(5)
 
         if part_count > 1:
             with open(self.local_path, 'rb') as f:
