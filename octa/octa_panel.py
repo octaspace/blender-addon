@@ -42,6 +42,21 @@ class SelectNodeOperator(bpy.types.Operator):
         context.scene.node_tree.nodes.active = node
         return {'FINISHED'}
 
+class ToggleSceneNodesOperator(bpy.types.Operator):
+    bl_idname = "scene.select_node"
+    bl_label = "Select Node"
+    scene_name: bpy.props.StringProperty()
+    new_state: bpy.props.BoolProperty()
+
+    def execute(self, context):
+        scene = context.scene
+        for node in scene.node_tree.nodes:
+            if node.type == 'R_LAYERS':
+                if node.scene.name == self.scene_name:
+                    node.mute = self.new_state
+        
+        return {'FINISHED'}
+
 
 def section(layout, properties, toggle_name, title):
     box = layout.box()
@@ -50,6 +65,45 @@ def section(layout, properties, toggle_name, title):
     if visible:
         return box
     return None
+
+def scene_panel(layout):
+    current_scene = bpy.context.scene
+    if current_scene.node_tree is None:
+        row = layout.row()
+        row.label(text=current_scene.name, icon="SCENE_DATA")
+        row.operator(ToggleSceneNodesOperator.bl_idname, text="Enable Nodes", icon="NODETREE").scene_name = current_scene.name
+        row.enabled = False
+        row = layout.row()
+        row.label(text="Compositing Disabled, only using current scene.")
+        return
+        
+    render_layer_nodes_scenes = set([node.scene for node in current_scene.node_tree.nodes if node.type == 'R_LAYERS'])
+
+    layout.label(text="Used Scenes in compositor nodes:")
+
+    for scene in render_layer_nodes_scenes:
+        col = layout.column(align=True)
+
+        sub_box = col.box()
+        row = sub_box.row()
+
+        row.prop(scene, "show_expanded", text="", icon="TRIA_RIGHT" if not scene.show_expanded else "TRIA_DOWN", emboss=False)
+
+        row.label(text=scene.name, icon="SCENE_DATA")
+        
+        all_nodes = [node for node in current_scene.node_tree.nodes if node.type == 'R_LAYERS' and node.scene == scene]
+        majority_state = all([node.mute for node in all_nodes])
+        
+        toggle_op = row.operator(ToggleSceneNodesOperator.bl_idname, text="", icon="HIDE_ON" if majority_state else "HIDE_OFF")
+        toggle_op.scene_name = scene.name
+        toggle_op.new_state = not majority_state
+
+        if scene.show_expanded:
+            for rl_node in all_nodes:
+                sub_row = sub_box.row()
+                sub_row.label(text=rl_node.name, icon="NODE")
+                sub_row.prop(rl_node, "mute", text="", icon='HIDE_OFF' if not rl_node.mute else 'HIDE_ON', emboss=False)
+
 
 
 # exporter panel
@@ -98,6 +152,10 @@ class OctaPanel(Panel):
             row.prop(properties, "generate_video")
             row = box.row()
             row.prop(properties, "max_thumbnail_size")
+
+        box = section(layout, properties, "scene_visibility_visible", "Scene Visibility")
+        if box is not None:
+            scene_panel(box)
 
         box = section(layout, properties, "render_output_path_visible", "Render Output")
         if box is not None:

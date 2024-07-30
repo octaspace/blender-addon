@@ -15,7 +15,7 @@ import bpy.props
 import bpy.utils
 
 from .octa.octa_properties import OctaProperties
-from .octa.octa_panel import OctaPanel, SelectNodeOperator
+from .octa.octa_panel import OctaPanel, SelectNodeOperator, ToggleSceneNodesOperator
 
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
@@ -33,6 +33,7 @@ classes = (
     SubmitJobOperator,
     OctaPanel,
     SelectNodeOperator,
+    ToggleSceneNodesOperator,
     DownloadJobOperator,
     Octa_Addon_Preferences
 )
@@ -43,12 +44,14 @@ def register():
         print("registerting " + str(cls))
         bpy.utils.register_class(cls)
     bpy.types.Scene.octa_properties = bpy.props.PointerProperty(type=OctaProperties)
+    bpy.types.Scene.show_expanded = bpy.props.BoolProperty(name="Show Expanded", default=False)
 
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.octa_properties
+    del bpy.types.Scene.show_expanded
 
 
 if __name__ == "__main__":
