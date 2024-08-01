@@ -13,7 +13,7 @@ from ..blender_asset_tracer.pack import zipped
 from ..blender_asset_tracer.blendfile import close_all_cached
 from .octa_properties import SubmitJobProperties
 from .web_ui import WebUi
-from .util import get_all_render_passes
+from .util import get_all_render_passes, get_file_md5
 import webbrowser
 
 
@@ -235,6 +235,8 @@ class SubmitJobOperator(Operator):
             # chunk_size = max(min_chunk_size, min(max_chunk_size, (zip_size // set_thread_count) + 1))
             # thread_count = max(1, (zip_size // chunk_size) + 1)
 
+            zip_hash = get_file_md5(temp_zip_name)
+
             upload = FileUpload(temp_zip_name, str(job_id), thread_count=set_thread_count, progress_callback=self.set_progress)
             upload.start()
             upload.join()
@@ -263,7 +265,7 @@ class SubmitJobOperator(Operator):
                     'render_engine': bpy.context.scene.render.engine,
                     'blender_version': job_properties.blender_version
                 },
-                "operations": get_operations(os.path.basename(job_properties.temp_blend_name), job_properties.render_format, job_properties.max_thumbnail_size)
+                "operations": get_operations(os.path.basename(job_properties.temp_blend_name), job_properties.render_format, job_properties.max_thumbnail_size, zip_hash)
             })
 
             bpy.context.scene.octa_properties.dl_job_id = str(job_id)

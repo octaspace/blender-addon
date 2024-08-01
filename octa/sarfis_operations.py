@@ -28,7 +28,7 @@ def ffmpeg():
     }
 
 
-def download_unzip():
+def download_unzip(zip_hash: str):
     return {
         'operation': 'exe',
         'arguments': {'input': 'python', "one_shot": True},
@@ -40,6 +40,8 @@ def download_unzip():
             '{node_folder}/{job_id}/input/',
             '-url',
             'https://render-data.octa.computer/{job_id}/input/package.zip',
+            '-hash',
+            zip_hash
         ]
     }
 
@@ -101,9 +103,9 @@ def s3_upload():
     return node
 
 
-def get_operations(blend_file_name, render_format, max_thumbnail_size):
+def get_operations(blend_file_name, render_format, max_thumbnail_size, zip_hash):
     return [
-        download_unzip(),
+        download_unzip(zip_hash),
         blender(blend_file_name=blend_file_name, render_format=render_format),
         thumbnails(max_size=max_thumbnail_size),
         s3_upload(),
