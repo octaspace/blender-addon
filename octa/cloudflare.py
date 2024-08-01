@@ -5,6 +5,7 @@ from traceback import format_exc
 import os
 import math
 import time
+import hashlib
 
 
 class FileUpload:
@@ -58,9 +59,14 @@ class FileUpload:
             self.reason = format_exc()
 
     def run_inner(self):
+        hasher = hashlib.md5()
         with open(self.local_path, 'rb') as f:
             f.seek(0, os.SEEK_END)
             file_size = f.tell()
+            f.seek(0, os.SEEK_SET)
+            for chunk in iter(lambda: f.read(4096), b''):
+                hasher.update(chunk)
+            file_hash = hasher.hexdigest()
 
         part_count = math.ceil(file_size / self.part_size)
         print(f"part count: {part_count}, file_size: {file_size}, part_size: {self.part_size}")
@@ -71,6 +77,7 @@ class FileUpload:
         bucket = data['bucket']
         upload_id = data['upload_id']
         links = data['links']
+        hash_link = data['hash_link']
 
         if part_count > 1:
             with open(self.local_path, 'rb') as f:
@@ -107,6 +114,9 @@ class FileUpload:
                 etags[1] = etag
 
         if part_count == len(etags):
+            WebApiBase.request_with_retries('PUT', hash_link, headers={
+                'Content-Length': len(file_hash)
+            }, data=file_hash, retries=self.retries)
             WebUi.complete_job_input_multipart_upload(key, bucket, upload_id, etags)
             self.success = True
         else:
