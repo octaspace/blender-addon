@@ -296,7 +296,7 @@ class OctaPanel(Panel):
                         select_op.node_name = composite_nodes[0].name
 
                     file_ext = IMAGE_TYPE_TO_EXTENSION.get(
-                        scene.render.image_settings.file_format, "unknown"
+                        scene.octa_properties.render_format, "unknown"
                     )
                     row = node_box.row(align=True)
                     frame_suffix = f"/{str(scene.frame_current).zfill(4)}.{file_ext}"

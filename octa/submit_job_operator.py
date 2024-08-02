@@ -65,6 +65,10 @@ def pack_blend(infile, zippath):
         packer.strategise()
         packer.execute()
 
+def wait_for_save():
+    while f'{os.path.split(bpy.data.filepath)[1]}@' in os.listdir(os.path.dirname(bpy.data.filepath)):
+        print("@ Detected, Waiting for save to finish")
+        time.sleep(0.25)
 
 # submit job operator
 class SubmitJobOperator(Operator):
@@ -145,8 +149,9 @@ class SubmitJobOperator(Operator):
         self._set_running(True)
 
         bpy.ops.wm.save_mainfile()
+        wait_for_save()
         temp_blend_name = subprocess_unpacker()
-
+        wait_for_save()
         job_properties.temp_blend_name = temp_blend_name
 
         self._run_thread = Thread(
