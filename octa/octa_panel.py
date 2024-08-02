@@ -47,14 +47,25 @@ class ToggleSceneNodesOperator(bpy.types.Operator):
     bl_idname = "scene.toggle_scene_nodes"
     bl_label = "Toggle Scene Nodes"
     scene_name: bpy.props.StringProperty()
+    rl_name: bpy.props.StringProperty(default="")
     new_state: bpy.props.BoolProperty()
+    current_scene: bpy.props.BoolProperty(default=False)
 
     def execute(self, context):
         scene = context.scene
         for node in scene.node_tree.nodes:
             if node.type == "R_LAYERS":
                 if node.scene.name == self.scene_name:
-                    node.mute = self.new_state
+                    if (self.rl_name == "") or (node.layer == self.rl_name):
+                        node.mute = self.new_state
+
+        if self.rl_name != "" and self.current_scene:
+            rl = bpy.data.scenes.get(self.scene_name).view_layers.get(self.rl_name)
+            rl.use = not self.new_state
+
+        if self.rl_name == "" and self.current_scene:
+            for rl in bpy.data.scenes.get(self.scene_name).view_layers:
+                rl.use = not self.new_state
 
         return {"FINISHED"}
 
@@ -93,9 +104,32 @@ def scene_panel(layout):
         ]
     )
 
-    layout.label(text="Used Scenes in compositor nodes:")
+    render_nodes = set(
+        [node for node in current_scene.node_tree.nodes if node.type == "R_LAYERS"]
+    )
 
-    for scene in render_layer_nodes_scenes:
+    scenes_info = {}
+
+    for scene in bpy.data.scenes:
+        render_layers_info = {}
+        for view_layer in scene.view_layers:
+            layer_nodes = [
+                node
+                for node in render_nodes
+                if node.layer == view_layer.name and node.scene == scene
+            ]
+            render_layers_info[view_layer.name] = {
+                "nodes": layer_nodes,
+                "current_scene": scene == current_scene,
+            }
+
+        scenes_info[scene.name] = render_layers_info
+
+    layout.label(text="Scene and Render Layer Rendering:")
+
+    for scene_name in scenes_info.keys():
+        scene = bpy.data.scenes[scene_name]
+
         col = layout.column(align=True)
 
         sub_box = col.box()
@@ -111,34 +145,59 @@ def scene_panel(layout):
 
         row.label(text=scene.name, icon="SCENE_DATA")
 
-        all_nodes = [
+        all_scene_nodes = [
             node
             for node in current_scene.node_tree.nodes
             if node.type == "R_LAYERS" and node.scene == scene
         ]
-        majority_state = all([node.mute for node in all_nodes])
+        majority_state = all([node.mute for node in all_scene_nodes])
 
         toggle_op = row.operator(
             ToggleSceneNodesOperator.bl_idname,
             text="",
-            icon="HIDE_ON" if majority_state else "HIDE_OFF",
+            icon="RESTRICT_RENDER_ON" if majority_state else "RESTRICT_RENDER_OFF",
         )
         toggle_op.scene_name = scene.name
         toggle_op.new_state = not majority_state
+        toggle_op.rl_name = ""
 
         if scene.show_expanded:
-            for rl_node in all_nodes:
-                sub_row = sub_box.row()
-                sub_row.label(text=rl_node.name, icon="NODE")
-                sub_row.label(text="", icon="RIGHTARROW")
-                sub_row.label(text=rl_node.layer, icon="RENDERLAYERS")
-                sub_row.prop(
-                    rl_node,
-                    "mute",
-                    text="",
-                    icon="HIDE_OFF" if not rl_node.mute else "HIDE_ON",
-                    emboss=False,
-                )
+            for rl_name in scenes_info[scene_name].keys():
+                all_rl_nodes = scenes_info[scene_name][rl_name]["nodes"]
+
+                rl_majority_state = all([node.mute for node in all_rl_nodes])
+                rl = scene.view_layers.get(rl_name)
+
+                if len(all_rl_nodes) == 0:
+                    rl_majority_state = not rl.use
+
+                if (
+                    scenes_info[scene_name][rl_name]["current_scene"]
+                    or len(all_rl_nodes) != 0
+                ):
+                    sub_row = sub_box.row()
+                    sub_row.label(text=rl_name, icon="RENDERLAYERS")
+
+                    sub_row.label(
+                        text="Nodes: " + str(len(all_rl_nodes)),
+                        icon="NODETREE",
+                    )
+
+                    toggle_op = sub_row.operator(
+                        ToggleSceneNodesOperator.bl_idname,
+                        text="",
+                        icon=(
+                            "RESTRICT_RENDER_ON"
+                            if rl_majority_state
+                            else "RESTRICT_RENDER_OFF"
+                        ),
+                    )
+                    toggle_op.scene_name = scene.name
+                    toggle_op.rl_name = rl_name
+                    toggle_op.new_state = not rl_majority_state
+                    toggle_op.current_scene = scenes_info[scene_name][rl_name][
+                        "current_scene"
+                    ]
 
 
 # exporter panel
@@ -195,127 +254,143 @@ class OctaPanel(Panel):
             row = box.row()
             row.prop(properties, "blender_version")
 
-        box = section(
-            layout, properties, "scene_visibility_visible", "Scene Visibility"
-        )
-        if box is not None:
-            scene_panel(box)
+            scene_vis_box = section(
+                box, properties, "scene_visibility_visible", "Scene Rendering"
+            )
 
-        box = section(layout, properties, "render_output_path_visible", "Render Output")
-        if box is not None:
-            all_paths = []
-            if (
-                scene.use_nodes
-                and scene.render.use_compositing
-                and scene.node_tree is not None
-            ):
-                node_box = box.box()
-                row = node_box.row()
-                row.label(text="File Output:", icon="FORWARD")
+            if scene_vis_box is not None:
+                scene_panel(scene_vis_box)
 
-                if scene.use_nodes:
-                    row.label(text="Composite", icon="NODE_COMPOSITING")
-                else:
-                    row.label(text="Output", icon="OUTPUT")
+            section_box = section(
+                box, properties, "render_output_path_visible", "Render Output"
+            )
 
-                composite_nodes = [
-                    node for node in scene.node_tree.nodes if node.type == "COMPOSITE"
-                ]
-                if len(composite_nodes) > 0:
-                    select_op = row.operator(
-                        SelectNodeOperator.bl_idname,
-                        text="",
-                        icon="RESTRICT_SELECT_OFF",
-                    )
-                    select_op.node_name = composite_nodes[0].name
+            if section_box is not None:
+                all_paths = []
+                if (
+                    scene.use_nodes
+                    and scene.render.use_compositing
+                    and scene.node_tree is not None
+                ):
+                    node_box = section_box.box()
+                    row = node_box.row()
+                    row.label(text="File Output:", icon="FORWARD")
 
-                file_ext = IMAGE_TYPE_TO_EXTENSION.get(
-                    scene.render.image_settings.file_format, "unknown"
-                )
-                row = node_box.row(align=True)
-                frame_suffix = f"/{str(scene.frame_current).zfill(4)}.{file_ext}"
-                row.label(text=frame_suffix, icon="URL")
+                    if scene.use_nodes:
+                        row.label(text="Composite", icon="NODE_COMPOSITING")
+                    else:
+                        row.label(text="Output", icon="OUTPUT")
 
-                for node in scene.node_tree.nodes:
-                    if node.type == "OUTPUT_FILE":
-                        node_box = box.box()
-                        row = node_box.row()
-                        row.label(text="File Output Node:", icon="FORWARD")
-                        row.label(text=node.name, icon="NODE")
+                    composite_nodes = [
+                        node
+                        for node in scene.node_tree.nodes
+                        if node.type == "COMPOSITE"
+                    ]
+                    if len(composite_nodes) > 0:
                         select_op = row.operator(
                             SelectNodeOperator.bl_idname,
                             text="",
                             icon="RESTRICT_SELECT_OFF",
                         )
-                        select_op.node_name = node.name
-                        # row.prop(node, "base_path", text="")
+                        select_op.node_name = composite_nodes[0].name
 
-                        bp = node.base_path
-                        formatted_base_path = bp.rstrip("/\\") + (
-                            "\\" if bp.count("\\") > bp.count("/") else "/"
-                        )
+                    file_ext = IMAGE_TYPE_TO_EXTENSION.get(
+                        scene.render.image_settings.file_format, "unknown"
+                    )
+                    row = node_box.row(align=True)
+                    frame_suffix = f"/{str(scene.frame_current).zfill(4)}.{file_ext}"
+                    row.label(text=frame_suffix, icon="URL")
 
-                        # box = node_box.box()
-
-                        row = node_box.row()
-                        col = row.column(align=True)
-                        col.label(text="Base Path")
-                        col = row.column(align=True)
-                        col.label(
-                            text=(
-                                "Layer"
-                                if node.format.file_format == "OPEN_EXR_MULTILAYER"
-                                else "File Subpath"
+                    for node in scene.node_tree.nodes:
+                        if node.type == "OUTPUT_FILE":
+                            node_box = section_box.box()
+                            row = node_box.row()
+                            row.label(text="File Output Node:", icon="FORWARD")
+                            row.label(text=node.name, icon="NODE")
+                            select_op = row.operator(
+                                SelectNodeOperator.bl_idname,
+                                text="",
+                                icon="RESTRICT_SELECT_OFF",
                             )
-                        )
-                        row_scale = 1.0
-                        row.scale_y = row_scale
+                            select_op.node_name = node.name
+                            # row.prop(node, "base_path", text="")
 
-                        split = node_box.split()
-                        col = split.column(align=True)
-
-                        for slot in node.file_slots:
-                            box = col.box()
-
-                            row = box.row()
-                            row.scale_y = row_scale
-                            # row.label(text=formatted_base_path)
-                            file_ext = IMAGE_TYPE_TO_EXTENSION.get(
-                                node.format.file_format, "unknown"
+                            bp = node.base_path
+                            formatted_base_path = bp.rstrip("/\\") + (
+                                "\\" if bp.count("\\") > bp.count("/") else "/"
                             )
-                            row.label(text="", icon="URL")
-                            bp_stem = Path(formatted_base_path).stem
 
-                            if node.format.file_format != "OPEN_EXR_MULTILAYER":
-                                row.label(
-                                    text=f"/{bp_stem}/{slot.path}_{str(scene.frame_current).zfill(4)}.{file_ext}"
-                                )
-                            else:
-                                row.label(
-                                    text=f"/{bp_stem}_{str(scene.frame_current).zfill(4)}.exr"
-                                )
+                            # box = node_box.box()
 
-                            row.prop(slot, "path", text="")
-
-                            full_path = slot.path
-                            if full_path in all_paths:
+                            if node.format.file_format == "OPEN_EXR_MULTILAYER":
                                 row = node_box.row()
-                                row.label(
-                                    text=f'Output Path "{str(full_path)}" already in use!',
-                                    icon="ERROR",
-                                )
-                            all_paths.append(full_path)
-                            # row.operator(SelectNodeOperator.bl_idname, text="", icon="FILE_FOLDER").node_name = node.name
-            else:
-                if not scene.use_nodes:
-                    row = box.row()
-                    row.label(text="Use Nodes must be enabled:", icon="ERROR")
-                    row.prop(scene, "use_nodes", text="Use Nodes")
 
-                if not scene.render.use_compositing:
-                    row = box.row()
-                    row.label(text="Use Compositing must be enabled:", icon="ERROR")
-                    row.prop(scene.render, "use_compositing", text="Use Compositing")
+                                row.prop(
+                                    node.octa_node_properties,
+                                    "multilayer_directory",
+                                    text="Multilayer Directory Name",
+                                )
+
+                            row = node_box.row()
+                            col = row.column(align=True)
+                            col.label(text="Base Path")
+                            col = row.column(align=True)
+                            col.label(
+                                text=(
+                                    "Layer"
+                                    if node.format.file_format == "OPEN_EXR_MULTILAYER"
+                                    else "File Subpath"
+                                )
+                            )
+                            row.scale_y = 0.5
+
+                            split = node_box.split()
+                            col = split.column(align=True)
+
+                            for slot in node.file_slots:
+                                box = col.box()
+
+                                row = box.row()
+                                row.scale_y = 1.0
+                                # row.label(text=formatted_base_path)
+                                file_ext = IMAGE_TYPE_TO_EXTENSION.get(
+                                    node.format.file_format, "unknown"
+                                )
+                                row.label(text="", icon="URL")
+                                bp_stem = Path(formatted_base_path).stem
+
+                                if node.format.file_format != "OPEN_EXR_MULTILAYER":
+                                    row.label(
+                                        text=f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+                                    )
+                                else:
+                                    row.label(
+                                        text=f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+                                    )
+
+                                row.prop(slot, "path", text="")
+
+                                full_path = slot.path
+                                if full_path in all_paths:
+                                    row = node_box.row()
+                                    row.label(
+                                        text=f'Output Path "{str(full_path)}" already in use!',
+                                        icon="ERROR",
+                                    )
+                                all_paths.append(full_path)
+                                # row.operator(SelectNodeOperator.bl_idname, text="", icon="FILE_FOLDER").node_name = node.name
+                else:
+                    if not scene.use_nodes:
+                        row = section_box.row()
+                        row.label(text="Use Nodes must be enabled:", icon="ERROR")
+                        row.prop(scene, "use_nodes", text="Use Nodes")
+
+                    if not scene.render.use_compositing:
+                        row = section_box.row()
+                        row.label(text="Use Compositing must be enabled:", icon="ERROR")
+                        row.prop(
+                            scene.render, "use_compositing", text="Use Compositing"
+                        )
 
         # download stuff
         box = section(layout, properties, "download_section_visible", "Download")

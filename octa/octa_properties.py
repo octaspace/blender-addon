@@ -33,6 +33,22 @@ def get_section_toggle_type(name):
     return bpy.props.BoolProperty(name=name, description=name, default=False)
 
 
+class OctaNodeProperties(PropertyGroup):
+    def update_multilayer_directory(self):
+        self.multilayer_directory = (
+            self.multilayer_directory
+            if self.multilayer_directory != ""
+            else "MultiLayer"
+        )
+
+    multilayer_directory: bpy.props.StringProperty(
+        name="Multilayer Directory",
+        description="Multilayer Directory",
+        default="MultiLayer",
+        update=lambda self, context: self.update_multilayer_directory(),
+    )
+
+
 # scene properties
 class OctaProperties(PropertyGroup):
     job_name: bpy.props.StringProperty(
@@ -53,6 +69,7 @@ class OctaProperties(PropertyGroup):
     render_output_path: bpy.props.StringProperty(
         name="Render Output Path", description="Render Output Path", default=""
     )
+
     octa_host: bpy.props.StringProperty(
         name="Octa Host",
         description="The Host of the Web UI (e.g. http://127.0.0.1:51800)",

@@ -14,18 +14,22 @@ bl_info = {
 import bpy.props
 import bpy.utils
 
-from .octa.octa_properties import OctaProperties
+from .octa.octa_properties import OctaProperties, OctaNodeProperties
 from .octa.octa_panel import OctaPanel, SelectNodeOperator, ToggleSceneNodesOperator
 
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
 
+
 class Octa_Addon_Preferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
     def draw(self, context):
-        layout = self.layout     
-        layout.operator("preferences.addon_refresh", text="Update Addon", icon="FILE_REFRESH")
+        layout = self.layout
+        layout.operator(
+            "preferences.addon_refresh", text="Update Addon", icon="FILE_REFRESH"
+        )
+
 
 # register
 classes = (
@@ -35,7 +39,8 @@ classes = (
     SelectNodeOperator,
     ToggleSceneNodesOperator,
     DownloadJobOperator,
-    Octa_Addon_Preferences
+    Octa_Addon_Preferences,
+    OctaNodeProperties,
 )
 
 
@@ -44,7 +49,12 @@ def register():
         print("registerting " + str(cls))
         bpy.utils.register_class(cls)
     bpy.types.Scene.octa_properties = bpy.props.PointerProperty(type=OctaProperties)
-    bpy.types.Scene.show_expanded = bpy.props.BoolProperty(name="Show Expanded", default=False)
+    bpy.types.Scene.show_expanded = bpy.props.BoolProperty(
+        name="Show Expanded", default=False
+    )
+    bpy.types.Node.octa_node_properties = bpy.props.PointerProperty(
+        type=OctaNodeProperties
+    )
 
 
 def unregister():
