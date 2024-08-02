@@ -178,10 +178,11 @@ def scene_panel(layout):
                     sub_row = sub_box.row()
                     sub_row.label(text=rl_name, icon="RENDERLAYERS")
 
-                    sub_row.label(
-                        text="Nodes: " + str(len(all_rl_nodes)),
-                        icon="NODETREE",
-                    )
+                    if len(all_rl_nodes) == 0:
+                        sub_row.label(
+                            text="Not used in Compositor!",
+                            icon="ERROR",
+                        )
 
                     toggle_op = sub_row.operator(
                         ToggleSceneNodesOperator.bl_idname,
