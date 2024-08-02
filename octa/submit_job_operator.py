@@ -3,7 +3,6 @@ import time
 import requests
 import os
 from pathlib import Path
-from tempfile import mktemp
 from .cloudflare import FileUpload
 from .sarfis import Sarfis
 from .sarfis_operations import get_operations
@@ -15,6 +14,49 @@ from .octa_properties import SubmitJobProperties
 from .web_ui import WebUi
 from .util import get_all_render_passes, get_file_md5
 import webbrowser
+import subprocess
+import shutil
+
+
+def subprocess_unpacker():
+    current_file_path = bpy.data.filepath
+    blender_executable = bpy.app.binary_path
+
+    script_path = os.path.realpath(__file__)
+    dir_path = os.path.dirname(script_path)
+    subprocess_unpacker_script = os.path.join(dir_path, "subprocess_unpacker.py")
+    subprocess_unpacker_script = os.path.abspath(subprocess_unpacker_script)
+
+    if not current_file_path:
+        return
+
+    folder = os.path.join(os.path.dirname(current_file_path), "_octa_")
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    print(folder)
+
+    temp_blend_name = os.path.join(
+        folder,
+        os.path.basename(bpy.data.filepath),
+    )
+
+    temp_blend_name = os.path.abspath(temp_blend_name)
+
+    command = [
+        blender_executable,
+        "-b",
+        current_file_path,
+        "--python",
+        subprocess_unpacker_script,
+        "--",
+        "-save_path",
+        temp_blend_name,
+    ]
+
+    subprocess.run(command)
+
+    return temp_blend_name
 
 
 def pack_blend(infile, zippath):
@@ -59,7 +101,7 @@ class SubmitJobOperator(Operator):
         cls._progress = value
         for window in bpy.context.window_manager.windows:
             for area in window.screen.areas:
-                if area.type == 'PROPERTIES':
+                if area.type == "PROPERTIES":
                     area.tag_redraw()
 
     @classmethod
@@ -75,22 +117,22 @@ class SubmitJobOperator(Operator):
         #    self.cancel(context)
         #    return {'CANCELLED'}
 
-        if event.type == 'TIMER':
+        if event.type == "TIMER":
             if not self.get_running():  # <--- Wait until the image is marked as dirty
                 self.finish(context)
-                return {'FINISHED'}
+                return {"FINISHED"}
 
-        return {'PASS_THROUGH'}
+        return {"PASS_THROUGH"}
 
     def cancel(self, context):
         # TODO: add way to cancel
-        self.report({'INFO'}, "Octa render submit cancelled")
+        self.report({"INFO"}, "Octa render submit cancelled")
 
     def finish(self, context):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
         self._run_thread = None
-        self.report({'INFO'}, "Octa render submit finished")
+        self.report({"INFO"}, "Octa render submit finished")
 
     def invoke(self, context, event):
         if self.get_running():
@@ -101,34 +143,34 @@ class SubmitJobOperator(Operator):
             return {"CANCELLED"}
 
         self._set_running(True)
-        temp_blend_name = os.path.join(os.path.dirname(bpy.data.filepath), 'octa_' + os.path.basename(bpy.data.filepath))
-        bpy.ops.wm.save_as_mainfile(filepath=temp_blend_name, copy=True, compress=True)
+
+        bpy.ops.wm.save_mainfile()
+        temp_blend_name = subprocess_unpacker()
+
         job_properties.temp_blend_name = temp_blend_name
 
-        while f'{os.path.split(bpy.data.filepath)[1]}@' in os.listdir(os.path.dirname(bpy.data.filepath)):
-            print("@ Detected")
-            time.sleep(0.1)
-
-        self._run_thread = Thread(target=self.thread_run, daemon=True, args=[job_properties])
+        self._run_thread = Thread(
+            target=self.thread_run, daemon=True, args=[job_properties]
+        )
         self._run_thread.start()
         wm = context.window_manager
         self._timer = wm.event_timer_add(0.5, window=context.window)
         wm.modal_handler_add(self)
-        return {'RUNNING_MODAL'}
+        return {"RUNNING_MODAL"}
 
     def validate_properties(self, context):
         job_properties = SubmitJobProperties()
         fail_validation = False
         try:
             if not context.blend_data.filepath:
-                self.report({'ERROR'}, "You have to save the .blend before submitting")
+                self.report({"ERROR"}, "You have to save the .blend before submitting")
                 fail_validation = True
 
             # get properties
             properties = context.scene.octa_properties
             job_name = properties.job_name
             if len(job_name) <= 0:
-                self.report({'ERROR'}, 'Job name is not set')
+                self.report({"ERROR"}, "Job name is not set")
                 fail_validation = True
 
             job_properties.job_name = job_name
@@ -151,7 +193,7 @@ class SubmitJobOperator(Operator):
             print("frame count: " + str(frame_count))
 
             if frame_count <= 0:
-                self.report({'ERROR'}, 'Frame range is negative')
+                self.report({"ERROR"}, "Frame range is negative")
                 fail_validation = True
 
             if frame_count % properties.batch_size != 0:
@@ -165,14 +207,17 @@ class SubmitJobOperator(Operator):
                 if len(suggested_divisions) > 0:
                     suggestion = f'Suggested batch sizes: {", ".join([str(d) for d in suggested_divisions[:5]])}'
 
-                self.report({'ERROR'}, f'Total frame count ({frame_count}) is not divisible by batch size {properties.batch_size}. {suggestion}')
+                self.report(
+                    {"ERROR"},
+                    f"Total frame count ({frame_count}) is not divisible by batch size {properties.batch_size}. {suggestion}",
+                )
                 fail_validation = True
 
             octa_host = properties.octa_host
-            octa_host = octa_host.rstrip('/')
+            octa_host = octa_host.rstrip("/")
             WebUi.set_host(octa_host)
             if len(octa_host) <= 0:
-                self.report({'ERROR'}, 'Octa host is not set')
+                self.report({"ERROR"}, "Octa host is not set")
                 fail_validation = True
             else:
                 try:
@@ -181,20 +226,24 @@ class SubmitJobOperator(Operator):
                     # TODO: get supported plugin version instead and fail if not supported anymore
                     response = requests.get(octa_host, timeout=15)
                 except:
-                    self.report({'ERROR'}, 'Octa host is not reachable')
+                    self.report({"ERROR"}, "Octa host is not reachable")
                     fail_validation = True
 
-            job_properties.advanced_section_visible = properties.advanced_section_visible
+            job_properties.advanced_section_visible = (
+                properties.advanced_section_visible
+            )
             job_properties.generate_video = properties.generate_video
             job_properties.match_scene = properties.match_scene
             job_properties.max_thumbnail_size = properties.max_thumbnail_size
-            job_properties.render_format = properties.render_format  # bpy.context.scene.render.image_settings.file_format
+            job_properties.render_format = (
+                properties.render_format
+            )  # bpy.context.scene.render.image_settings.file_format
             job_properties.render_output_path = properties.render_output_path
             job_properties.octa_host = octa_host
             job_properties.upload_threads = properties.upload_threads
             job_properties.batch_size = properties.batch_size
             job_properties.blender_version = properties.blender_version
-            
+
         except:
             raise
 
@@ -208,13 +257,13 @@ class SubmitJobOperator(Operator):
         self.set_progress(0)
         try:
             # temp names
-            temp_zip_name = mktemp('.zip')
+            temp_zip = Path(job_properties.temp_blend_name).parent / "temp.zip"
 
             self.set_progress_name("Packing blend file")
             self.set_progress(0.2)
 
             print("packing blend")
-            pack_blend(Path(Path(job_properties.temp_blend_name)), Path(temp_zip_name))
+            pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
             print("packed blend, deleting temp blend file")
 
             self.set_progress_name("Uploading")
@@ -235,9 +284,14 @@ class SubmitJobOperator(Operator):
             # chunk_size = max(min_chunk_size, min(max_chunk_size, (zip_size // set_thread_count) + 1))
             # thread_count = max(1, (zip_size // chunk_size) + 1)
 
-            zip_hash = get_file_md5(temp_zip_name)
+            zip_hash = get_file_md5(str(temp_zip))
 
-            upload = FileUpload(temp_zip_name, str(job_id), thread_count=set_thread_count, progress_callback=self.set_progress)
+            upload = FileUpload(
+                str(temp_zip),
+                str(job_id),
+                thread_count=set_thread_count,
+                progress_callback=self.set_progress,
+            )
             upload.start()
             upload.join()
             if not upload.success:
@@ -248,25 +302,37 @@ class SubmitJobOperator(Operator):
 
             total_frames = job_properties.frame_end - job_properties.frame_start + 1
             if job_properties.batch_size != 1:
-                end = job_properties.frame_start + (total_frames // job_properties.batch_size) - 1
+                end = (
+                    job_properties.frame_start
+                    + (total_frames // job_properties.batch_size)
+                    - 1
+                )
             else:
                 end = job_properties.frame_end
-            Sarfis.node_job(job_properties.octa_host, {
-                "job_data": {
-                    'id': job_id,
-                    'name': job_properties.job_name,
-                    'status': 'queued',
-                    'start': job_properties.frame_start,
-                    'batch_size': job_properties.batch_size,
-                    'end': end,
-                    'render_passes': get_all_render_passes(),
-                    'render_format': job_properties.render_format,
-                    'version': '1712359928',
-                    'render_engine': bpy.context.scene.render.engine,
-                    'blender_version': job_properties.blender_version
+            Sarfis.node_job(
+                job_properties.octa_host,
+                {
+                    "job_data": {
+                        "id": job_id,
+                        "name": job_properties.job_name,
+                        "status": "queued",
+                        "start": job_properties.frame_start,
+                        "batch_size": job_properties.batch_size,
+                        "end": end,
+                        "render_passes": get_all_render_passes(),
+                        "render_format": job_properties.render_format,
+                        "version": "1712359928",
+                        "render_engine": bpy.context.scene.render.engine,
+                        "blender_version": job_properties.blender_version,
+                    },
+                    "operations": get_operations(
+                        os.path.basename(job_properties.temp_blend_name),
+                        job_properties.render_format,
+                        job_properties.max_thumbnail_size,
+                        zip_hash,
+                    ),
                 },
-                "operations": get_operations(os.path.basename(job_properties.temp_blend_name), job_properties.render_format, job_properties.max_thumbnail_size, zip_hash)
-            })
+            )
 
             bpy.context.scene.octa_properties.dl_job_id = str(job_id)
 
@@ -277,6 +343,6 @@ class SubmitJobOperator(Operator):
             self._set_running(False)
 
             try:
-                os.unlink(temp_zip_name)
+                shutil.rmtree(str(Path(job_properties.temp_blend_name).parent))
             except:
                 pass
