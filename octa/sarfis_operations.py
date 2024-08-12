@@ -34,13 +34,13 @@ def download_unzip(zip_hash: str):
         'arguments': {'input': 'python', "one_shot": True},
         'variables': [
             'assets/scripts/files/unzip.py',
-            '-zip',
+            '--zip',
             '{node_folder}/{job_id}/input/package.zip',
-            '-folder',
+            '--folder',
             '{node_folder}/{job_id}/input/',
-            '-url',
+            '--url',
             'https://render-data.octa.computer/{job_id}/input/package.zip',
-            '-hash',
+            '--hash',
             zip_hash
         ]
     }
