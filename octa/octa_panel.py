@@ -201,6 +201,180 @@ def scene_panel(layout):
                     ]
 
 
+def render_output_panel(layout):
+    scene = bpy.context.scene
+
+    all_paths = []
+
+    if not scene.use_nodes:
+        row = layout.row()
+        row.label(text="Use Nodes must be enabled:", icon="ERROR")
+        row.prop(scene, "use_nodes", text="Use Nodes")
+
+    if not scene.render.use_compositing:
+        row = layout.row()
+        row.label(text="Use Compositing must be enabled:", icon="ERROR")
+        row.prop(scene.render, "use_compositing", text="Use Compositing")
+
+    if scene.node_tree is None:
+        return
+
+    node_box = layout.box()
+    row = node_box.row()
+    row.label(text="File Output:", icon="FORWARD")
+
+    if scene.use_nodes:
+        row.label(text="Composite", icon="NODE_COMPOSITING")
+    else:
+        row.label(text="Output", icon="OUTPUT")
+
+    composite_nodes = [
+        node for node in scene.node_tree.nodes if node.type == "COMPOSITE"
+    ]
+    if len(composite_nodes) > 0:
+        select_op = row.operator(
+            SelectNodeOperator.bl_idname,
+            text="",
+            icon="RESTRICT_SELECT_OFF",
+        )
+        select_op.node_name = composite_nodes[0].name
+
+    file_ext = IMAGE_TYPE_TO_EXTENSION.get(
+        scene.render.image_settings.file_format, "unknown"
+    )
+    row = node_box.row(align=True)
+    frame_suffix = f"/{str(scene.frame_current).zfill(4)}.{file_ext}"
+    row.label(text=frame_suffix, icon="URL")
+
+    for node in scene.node_tree.nodes:
+        if node.type == "OUTPUT_FILE":
+            node_box = layout.box()
+            row = node_box.row()
+            row.label(text="File Output Node:", icon="FORWARD")
+            row.label(text=node.name, icon="NODE")
+            select_op = row.operator(
+                SelectNodeOperator.bl_idname,
+                text="",
+                icon="RESTRICT_SELECT_OFF",
+            )
+            select_op.node_name = node.name
+
+            bp = node.base_path
+            formatted_base_path = bp.rstrip("/\\") + (
+                "\\" if bp.count("\\") > bp.count("/") else "/"
+            )
+
+            if node.format.file_format == "OPEN_EXR_MULTILAYER":
+                row = node_box.row()
+
+                row.prop(
+                    node.octa_node_properties,
+                    "multilayer_directory",
+                    text="Multilayer Directory Name",
+                )
+
+            row = node_box.row()
+            col = row.column(align=True)
+            col.label(text="Base Path")
+            col = row.column(align=True)
+            col.label(
+                text=(
+                    "Layer"
+                    if node.format.file_format == "OPEN_EXR_MULTILAYER"
+                    else "File Subpath"
+                )
+            )
+            row.scale_y = 0.5
+
+            split = node_box.split()
+            col = split.column(align=True)
+
+            for slot in node.file_slots:
+                box = col.box()
+
+                row = box.row()
+                row.scale_y = 1.0
+                # row.label(text=formatted_base_path)
+                file_ext = IMAGE_TYPE_TO_EXTENSION.get(
+                    node.format.file_format, "unknown"
+                )
+                row.label(text="", icon="URL")
+                bp_stem = Path(formatted_base_path).stem
+
+                if node.format.file_format != "OPEN_EXR_MULTILAYER":
+                    row.label(
+                        text=f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+                    )
+                else:
+                    row.label(
+                        text=f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+                    )
+
+                row.prop(slot, "path", text="")
+
+                full_path = slot.path
+                if full_path in all_paths:
+                    row = node_box.row()
+                    row.label(
+                        text=f'Output Path "{str(full_path)}" already in use!',
+                        icon="ERROR",
+                    )
+                all_paths.append(full_path)
+
+
+def denoise_suggestion(layout, denoise_nodes):
+    sug_box = layout.box()
+    row = sug_box.row()
+    row.label(text="Denoise Node Found!", icon="SORTTIME")
+    row.operator(
+        SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF"
+    ).node_name = denoise_nodes[0].name
+    row = sug_box.row()
+    row.label(
+        text="The Denoising Node may be slow and incompatible with multilayer EXR files."
+    )
+
+
+def use_nodes_suggestion(context, layout):
+    sug_box = layout.box()
+    row = sug_box.row()
+    row.label(text="Use Nodes Disabled!", icon="ERROR")
+    row = sug_box.row()
+    row.label(text="To use output paths Use Nodes must be enabled.")
+    row = sug_box.row()
+    row.prop(context.scene, "use_nodes", text="Use Nodes")
+
+
+def use_compositing_suggestion(context, layout):
+    sug_box = layout.box()
+    row = sug_box.row()
+    row.label(text="Use Compositing Disabled!", icon="ERROR")
+    row = sug_box.row()
+    row.label(text="To use output paths Use Compositing must be enabled.")
+    row = sug_box.row()
+    row.prop(context.scene.render, "use_compositing", text="Use Compositing")
+
+
+def suggestion_draw(context, layout, suggestion_count=0, draw=True):
+    if context.scene.node_tree:
+        denoise_nodes = [
+            node for node in context.scene.node_tree.nodes if node.type == "DENOISE"
+        ]
+        if len(denoise_nodes) > 0:
+            if draw:
+                denoise_suggestion(layout, denoise_nodes)
+            suggestion_count += 1
+    if not context.scene.use_nodes:
+        if draw:
+            use_nodes_suggestion(context, layout)
+        suggestion_count += 1
+    if not context.scene.render.use_compositing:
+        if draw:
+            use_compositing_suggestion(context, layout)
+        suggestion_count += 1
+    return suggestion_count
+
+
 # exporter panel
 class OctaPanel(Panel):
     bl_idname = "SCENE_PT_octa_panel"
@@ -267,133 +441,8 @@ class OctaPanel(Panel):
             )
 
             if section_box is not None:
-                all_paths = []
-                if (
-                    scene.use_nodes
-                    and scene.render.use_compositing
-                    and scene.node_tree is not None
-                ):
-                    node_box = section_box.box()
-                    row = node_box.row()
-                    row.label(text="File Output:", icon="FORWARD")
+                render_output_panel(section_box)
 
-                    if scene.use_nodes:
-                        row.label(text="Composite", icon="NODE_COMPOSITING")
-                    else:
-                        row.label(text="Output", icon="OUTPUT")
-
-                    composite_nodes = [
-                        node
-                        for node in scene.node_tree.nodes
-                        if node.type == "COMPOSITE"
-                    ]
-                    if len(composite_nodes) > 0:
-                        select_op = row.operator(
-                            SelectNodeOperator.bl_idname,
-                            text="",
-                            icon="RESTRICT_SELECT_OFF",
-                        )
-                        select_op.node_name = composite_nodes[0].name
-
-                    file_ext = IMAGE_TYPE_TO_EXTENSION.get(
-                        scene.octa_properties.render_format, "unknown"
-                    )
-                    row = node_box.row(align=True)
-                    frame_suffix = f"/{str(scene.frame_current).zfill(4)}.{file_ext}"
-                    row.label(text=frame_suffix, icon="URL")
-
-                    for node in scene.node_tree.nodes:
-                        if node.type == "OUTPUT_FILE":
-                            node_box = section_box.box()
-                            row = node_box.row()
-                            row.label(text="File Output Node:", icon="FORWARD")
-                            row.label(text=node.name, icon="NODE")
-                            select_op = row.operator(
-                                SelectNodeOperator.bl_idname,
-                                text="",
-                                icon="RESTRICT_SELECT_OFF",
-                            )
-                            select_op.node_name = node.name
-                            # row.prop(node, "base_path", text="")
-
-                            bp = node.base_path
-                            formatted_base_path = bp.rstrip("/\\") + (
-                                "\\" if bp.count("\\") > bp.count("/") else "/"
-                            )
-
-                            # box = node_box.box()
-
-                            if node.format.file_format == "OPEN_EXR_MULTILAYER":
-                                row = node_box.row()
-
-                                row.prop(
-                                    node.octa_node_properties,
-                                    "multilayer_directory",
-                                    text="Multilayer Directory Name",
-                                )
-
-                            row = node_box.row()
-                            col = row.column(align=True)
-                            col.label(text="Base Path")
-                            col = row.column(align=True)
-                            col.label(
-                                text=(
-                                    "Layer"
-                                    if node.format.file_format == "OPEN_EXR_MULTILAYER"
-                                    else "File Subpath"
-                                )
-                            )
-                            row.scale_y = 0.5
-
-                            split = node_box.split()
-                            col = split.column(align=True)
-
-                            for slot in node.file_slots:
-                                box = col.box()
-
-                                row = box.row()
-                                row.scale_y = 1.0
-                                # row.label(text=formatted_base_path)
-                                file_ext = IMAGE_TYPE_TO_EXTENSION.get(
-                                    node.format.file_format, "unknown"
-                                )
-                                row.label(text="", icon="URL")
-                                bp_stem = Path(formatted_base_path).stem
-
-                                if node.format.file_format != "OPEN_EXR_MULTILAYER":
-                                    row.label(
-                                        text=f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
-                                    )
-                                else:
-                                    row.label(
-                                        text=f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
-                                    )
-
-                                row.prop(slot, "path", text="")
-
-                                full_path = slot.path
-                                if full_path in all_paths:
-                                    row = node_box.row()
-                                    row.label(
-                                        text=f'Output Path "{str(full_path)}" already in use!',
-                                        icon="ERROR",
-                                    )
-                                all_paths.append(full_path)
-                                # row.operator(SelectNodeOperator.bl_idname, text="", icon="FILE_FOLDER").node_name = node.name
-                else:
-                    if not scene.use_nodes:
-                        row = section_box.row()
-                        row.label(text="Use Nodes must be enabled:", icon="ERROR")
-                        row.prop(scene, "use_nodes", text="Use Nodes")
-
-                    if not scene.render.use_compositing:
-                        row = section_box.row()
-                        row.label(text="Use Compositing must be enabled:", icon="ERROR")
-                        row.prop(
-                            scene.render, "use_compositing", text="Use Compositing"
-                        )
-
-        # download stuff
         box = section(layout, properties, "download_section_visible", "Download")
         if box is not None:
             box.prop(properties, "dl_job_id")
@@ -414,57 +463,8 @@ class OctaPanel(Panel):
                     factor=DownloadJobOperator.instance.get_progress(),
                 )
 
-        def denoise_suggestion(layout, denoise_nodes):
-            sug_box = layout.box()
-            row = sug_box.row()
-            row.label(text="Denoise Node Found!", icon="SORTTIME")
-            row.operator(
-                SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF"
-            ).node_name = denoise_nodes[0].name
-            row = sug_box.row()
-            row.label(
-                text="The Denoising Node may be slow and incompatible with multilayer EXR files."
-            )
-
-        def use_nodes_suggestion(layout):
-            sug_box = layout.box()
-            row = sug_box.row()
-            row.label(text="Use Nodes Disabled!", icon="ERROR")
-            row = sug_box.row()
-            row.label(text="To use output paths Use Nodes must be enabled.")
-            row = sug_box.row()
-            row.prop(scene, "use_nodes", text="Use Nodes")
-
-        def use_compositing_suggestion(layout):
-            sug_box = layout.box()
-            row = sug_box.row()
-            row.label(text="Use Compositing Disabled!", icon="ERROR")
-            row = sug_box.row()
-            row.label(text="To use output paths Use Compositing must be enabled.")
-            row = sug_box.row()
-            row.prop(scene.render, "use_compositing", text="Use Compositing")
-
-        def suggestion_draw(layout, suggestion_count=0, draw=True):
-            if scene.node_tree:
-                denoise_nodes = [
-                    node for node in scene.node_tree.nodes if node.type == "DENOISE"
-                ]
-                if len(denoise_nodes) > 0:
-                    if draw:
-                        denoise_suggestion(layout, denoise_nodes)
-                    suggestion_count += 1
-            if not scene.use_nodes:
-                if draw:
-                    use_nodes_suggestion(layout)
-                suggestion_count += 1
-            if not scene.render.use_compositing:
-                if draw:
-                    use_compositing_suggestion(layout)
-                suggestion_count += 1
-            return suggestion_count
-
         suggestion_count = 0
-        suggestion_count = suggestion_draw(box, suggestion_count, False)
+        suggestion_count = suggestion_draw(context, box, suggestion_count, False)
 
         box = section(
             layout,
