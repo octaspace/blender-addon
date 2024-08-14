@@ -96,14 +96,6 @@ def scene_panel(layout):
         row.label(text="Compositing Disabled, only using current scene.")
         return
 
-    render_layer_nodes_scenes = set(
-        [
-            node.scene
-            for node in current_scene.node_tree.nodes
-            if node.type == "R_LAYERS"
-        ]
-    )
-
     render_nodes = set(
         [node for node in current_scene.node_tree.nodes if node.type == "R_LAYERS"]
     )
@@ -203,9 +195,18 @@ def scene_panel(layout):
 
 def render_output_panel(layout):
     scene = bpy.context.scene
-
     all_paths = []
 
+    check_and_display_errors(layout, scene)
+
+    if scene.node_tree is None:
+        return
+
+    display_composite_node_info(layout, scene)
+    display_file_output_info(layout, scene, all_paths)
+
+
+def check_and_display_errors(layout, scene):
     if not scene.use_nodes:
         row = layout.row()
         row.label(text="Use Nodes must be enabled:", icon="ERROR")
@@ -216,26 +217,21 @@ def render_output_panel(layout):
         row.label(text="Use Compositing must be enabled:", icon="ERROR")
         row.prop(scene.render, "use_compositing", text="Use Compositing")
 
-    if scene.node_tree is None:
-        return
 
+def display_composite_node_info(layout, scene):
     node_box = layout.box()
     row = node_box.row()
     row.label(text="File Output:", icon="FORWARD")
-
-    if scene.use_nodes:
-        row.label(text="Composite", icon="NODE_COMPOSITING")
-    else:
-        row.label(text="Output", icon="OUTPUT")
+    row.label(
+        text="Composite" if scene.use_nodes else "Output", icon="NODE_COMPOSITING"
+    )
 
     composite_nodes = [
         node for node in scene.node_tree.nodes if node.type == "COMPOSITE"
     ]
-    if len(composite_nodes) > 0:
+    if composite_nodes:
         select_op = row.operator(
-            SelectNodeOperator.bl_idname,
-            text="",
-            icon="RESTRICT_SELECT_OFF",
+            SelectNodeOperator.bl_idname, icon="RESTRICT_SELECT_OFF"
         )
         select_op.node_name = composite_nodes[0].name
 
@@ -243,9 +239,10 @@ def render_output_panel(layout):
         scene.render.image_settings.file_format, "unknown"
     )
     row = node_box.row(align=True)
-    frame_suffix = f"/{str(scene.frame_current).zfill(4)}.{file_ext}"
-    row.label(text=frame_suffix, icon="URL")
+    row.label(text=f"/{str(scene.frame_current).zfill(4)}.{file_ext}", icon="URL")
 
+
+def display_file_output_info(layout, scene, all_paths):
     for node in scene.node_tree.nodes:
         if node.type == "OUTPUT_FILE":
             node_box = layout.box()
@@ -253,73 +250,60 @@ def render_output_panel(layout):
             row.label(text="File Output Node:", icon="FORWARD")
             row.label(text=node.name, icon="NODE")
             select_op = row.operator(
-                SelectNodeOperator.bl_idname,
-                text="",
-                icon="RESTRICT_SELECT_OFF",
+                SelectNodeOperator.bl_idname, icon="RESTRICT_SELECT_OFF"
             )
             select_op.node_name = node.name
 
-            bp = node.base_path
-            formatted_base_path = bp.rstrip("/\\") + (
-                "\\" if bp.count("\\") > bp.count("/") else "/"
+            formatted_base_path = format_path(node.base_path)
+            display_output_settings(
+                node_box, node, scene, formatted_base_path, all_paths
             )
 
-            if node.format.file_format == "OPEN_EXR_MULTILAYER":
-                row = node_box.row()
 
-                row.prop(
-                    node.octa_node_properties,
-                    "multilayer_directory",
-                    text="Multilayer Directory Name",
-                )
+def format_path(base_path):
+    return base_path.rstrip("/\\") + (
+        "\\" if base_path.count("\\") > base_path.count("/") else "/"
+    )
 
+
+def display_output_settings(node_box, node, scene, formatted_base_path, all_paths):
+    file_format = node.format.file_format
+    row = node_box.row()
+    col = row.column(align=True)
+    col.label(text="Base Path")
+    col = row.column(align=True)
+    label_text = "Layer" if file_format == "OPEN_EXR_MULTILAYER" else "File Subpath"
+    col.label(text=label_text)
+    row.scale_y = 0.5
+
+    display_file_slots(node_box, node, scene, formatted_base_path, all_paths)
+
+
+def display_file_slots(node_box, node, scene, formatted_base_path, all_paths):
+    split = node_box.split()
+    col = split.column(align=True)
+    file_format = node.format.file_format
+    for slot in node.file_slots:
+        box = col.box()
+        row = box.row()
+        row.scale_y = 1.0
+        file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
+        row.label(text="", icon="URL")
+        if file_format != "OPEN_EXR_MULTILAYER":
+            row.label(
+                text=f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            )
+        else:
+            row.label(
+                text=f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            )
+        row.prop(slot, "path", text="")
+        if slot.path in all_paths:
             row = node_box.row()
-            col = row.column(align=True)
-            col.label(text="Base Path")
-            col = row.column(align=True)
-            col.label(
-                text=(
-                    "Layer"
-                    if node.format.file_format == "OPEN_EXR_MULTILAYER"
-                    else "File Subpath"
-                )
+            row.label(
+                text=f'Output Path "{str(slot.path)}" already in use!', icon="ERROR"
             )
-            row.scale_y = 0.5
-
-            split = node_box.split()
-            col = split.column(align=True)
-
-            for slot in node.file_slots:
-                box = col.box()
-
-                row = box.row()
-                row.scale_y = 1.0
-                # row.label(text=formatted_base_path)
-                file_ext = IMAGE_TYPE_TO_EXTENSION.get(
-                    node.format.file_format, "unknown"
-                )
-                row.label(text="", icon="URL")
-                bp_stem = Path(formatted_base_path).stem
-
-                if node.format.file_format != "OPEN_EXR_MULTILAYER":
-                    row.label(
-                        text=f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
-                    )
-                else:
-                    row.label(
-                        text=f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
-                    )
-
-                row.prop(slot, "path", text="")
-
-                full_path = slot.path
-                if full_path in all_paths:
-                    row = node_box.row()
-                    row.label(
-                        text=f'Output Path "{str(full_path)}" already in use!',
-                        icon="ERROR",
-                    )
-                all_paths.append(full_path)
+        all_paths.append(slot.path)
 
 
 def denoise_suggestion(layout, denoise_nodes):
@@ -375,7 +359,6 @@ def suggestion_draw(context, layout, suggestion_count=0, draw=True):
     return suggestion_count
 
 
-# exporter panel
 class OctaPanel(Panel):
     bl_idname = "SCENE_PT_octa_panel"
     bl_label = "Octa Render"
@@ -389,7 +372,6 @@ class OctaPanel(Panel):
         scene = context.scene
         layout = self.layout
 
-        # render stuff
         box = layout.box()
         box.prop(properties, "job_name")
         box.prop(properties, "render_format")
