@@ -5,6 +5,77 @@ from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
 from .download_job_operator import DownloadJobOperator
 from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION
+from ..icon_manager import IconManager
+
+# Global dictionary to store visibility states
+visibility_states = {}
+
+
+class ToggleVisibilityOperator(bpy.types.Operator):
+    """Toggle the visibility of a section"""
+
+    bl_idname = "ui.toggle_visibility"
+    bl_label = "Toggle Visibility"
+
+    section: bpy.props.StringProperty()
+
+    def execute(self, context):
+        # Toggle the visibility state
+        visibility_states[self.section] = not visibility_states.get(self.section, False)
+        context.area.tag_redraw()  # Force redraw of the UI
+        return {"FINISHED"}
+
+
+def collapsable_node_section(layout, node=None):
+    if node is None:
+        return None
+    global visibility_states
+    visible = visibility_states.get(node.name, False)
+
+    row = layout.row()
+    row.scale_y = 0.75
+    icon = "DOWNARROW_HLT" if visible else "RIGHTARROW_THIN"
+    op = row.operator("ui.toggle_visibility", text="", icon=icon, emboss=False)
+    op.section = node.name
+
+    if node.label:
+        row.label(text=node.label, icon="OUTPUT")
+    else:
+        row.label(text=node.name, icon="OUTPUT")
+
+    if node is None:
+        return layout
+
+    row.operator(
+        SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF"
+    ).node_name = node.name
+
+    if visible:
+        return layout
+    return None
+
+
+def collapsable_scene_section(layout, scene=None):
+    if scene is None:
+        return None
+    global visibility_states
+    visible = visibility_states.get(scene.name, False)
+
+    row = layout.row()
+    row.scale_y = 0.75
+    icon = "DOWNARROW_HLT" if visible else "RIGHTARROW_THIN"
+    op = row.operator("ui.toggle_visibility", text="", icon=icon, emboss=False)
+    op.section = scene.name
+
+    row.label(text=scene.name, icon="SCENE_DATA")
+
+    # row.operator(
+    #     SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF"
+    # ).node_name = node.name
+
+    if visible:
+        return layout
+    return None
 
 
 def get_all_render_output_paths(context):
@@ -77,7 +148,7 @@ def section(layout, properties, toggle_name, title):
         properties,
         toggle_name,
         text=title,
-        icon="TRIA_DOWN" if visible else "TRIA_RIGHT",
+        icon="DOWNARROW_HLT" if visible else "RIGHTARROW",
         emboss=False,
     )
     if visible:
@@ -85,8 +156,8 @@ def section(layout, properties, toggle_name, title):
     return None
 
 
-def scene_panel(layout):
-    current_scene = bpy.context.scene
+def setup_base_scene_panel(layout, current_scene):
+    """Sets up the initial UI elements like checking if nodes are enabled and displaying basic scene information."""
     if (current_scene.node_tree is None) or (not current_scene.use_nodes):
         row = layout.row()
         row.label(text=current_scene.name, icon="SCENE_DATA")
@@ -94,14 +165,20 @@ def scene_panel(layout):
         row.enabled = True
         row = layout.row()
         row.label(text="Compositing Disabled, only using current scene.")
-        return
+        return False
+    return True
 
-    render_nodes = set(
+
+def gather_render_nodes(current_scene):
+    """Extracts render layer nodes from the current scene's node tree."""
+    return set(
         [node for node in current_scene.node_tree.nodes if node.type == "R_LAYERS"]
     )
 
-    scenes_info = {}
 
+def build_scenes_info(render_nodes):
+    """Organizes nodes and scenes information based on their relationships to scenes and view layers."""
+    scenes_info = {}
     for scene in bpy.data.scenes:
         render_layers_info = {}
         for view_layer in scene.view_layers:
@@ -112,85 +189,92 @@ def scene_panel(layout):
             ]
             render_layers_info[view_layer.name] = {
                 "nodes": layer_nodes,
-                "current_scene": scene == current_scene,
+                "current_scene": scene == bpy.context.scene,
             }
-
         scenes_info[scene.name] = render_layers_info
+    return scenes_info
 
-    layout.label(text="Scene and Render Layer Rendering:")
 
-    for scene_name in scenes_info.keys():
-        scene = bpy.data.scenes[scene_name]
+def build_scene_ui(layout, scene_name, scenes_info, current_scene):
+    """Creates UI elements for each scene and their render layers dynamically."""
+    scene = bpy.data.scenes[scene_name]
 
-        col = layout.column(align=True)
+    box = layout.box()
 
-        sub_box = col.box()
-        row = sub_box.row()
+    scene_section = collapsable_scene_section(box, scene)
 
-        row.prop(
-            scene,
-            "show_expanded",
-            text="",
-            icon="TRIA_RIGHT" if not scene.show_expanded else "TRIA_DOWN",
-            emboss=False,
+    if scene_section:
+        build_layer_ui(scene_section, scene, scenes_info[scene_name], current_scene)
+
+
+def build_layer_ui(box, scene, scene_info, current_scene):
+    """Creates UI elements for each render layer within a scene."""
+    table = BlenderUITable(
+        box,
+        ["Render Layer", "Status", ""],
+        header_icons=["RENDERLAYERS", "INFO", "NONE"],
+        column_widths=[None, None, 0.1],
+    )
+
+    for rl_name, layer_info in scene_info.items():
+        all_rl_nodes = layer_info["nodes"]
+        rl_majority_state = (
+            all([node.mute for node in all_rl_nodes])
+            if all_rl_nodes
+            else not scene.view_layers.get(rl_name).use
         )
 
-        row.label(text=scene.name, icon="SCENE_DATA")
+        padding = " " * 2
 
-        all_scene_nodes = [
-            node
-            for node in current_scene.node_tree.nodes
-            if node.type == "R_LAYERS" and node.scene == scene
-        ]
-        majority_state = all([node.mute for node in all_scene_nodes])
+        if scene != current_scene:
+            if not all_rl_nodes:
+                continue
 
-        toggle_op = row.operator(
-            ToggleSceneNodesOperator.bl_idname,
-            text="",
-            icon="RESTRICT_RENDER_ON" if majority_state else "RESTRICT_RENDER_OFF",
-        )
-        toggle_op.scene_name = scene.name
-        toggle_op.new_state = not majority_state
-        toggle_op.rl_name = ""
-
-        if scene.show_expanded:
-            for rl_name in scenes_info[scene_name].keys():
-                all_rl_nodes = scenes_info[scene_name][rl_name]["nodes"]
-
-                rl_majority_state = all([node.mute for node in all_rl_nodes])
-                rl = scene.view_layers.get(rl_name)
-
-                if len(all_rl_nodes) == 0:
-                    rl_majority_state = not rl.use
-
-                if (
-                    scenes_info[scene_name][rl_name]["current_scene"]
-                    or len(all_rl_nodes) != 0
-                ):
-                    sub_row = sub_box.row()
-                    sub_row.label(text=rl_name, icon="RENDERLAYERS")
-
-                    if len(all_rl_nodes) == 0:
-                        sub_row.label(
-                            text="Not used in Compositor!",
-                            icon="ERROR",
-                        )
-
-                    toggle_op = sub_row.operator(
-                        ToggleSceneNodesOperator.bl_idname,
-                        text="",
-                        icon=(
-                            "RESTRICT_RENDER_ON"
-                            if rl_majority_state
-                            else "RESTRICT_RENDER_OFF"
-                        ),
+        table.add_row(
+            [
+                {"label": f"{padding}{rl_name}"},
+                # {"data": layer_info, "path": "nodes"},
+                {
+                    "label": (
+                        "Not used in Compositor!"
+                        if not all_rl_nodes
+                        else "Used in Compositor!"
                     )
-                    toggle_op.scene_name = scene.name
-                    toggle_op.rl_name = rl_name
-                    toggle_op.new_state = not rl_majority_state
-                    toggle_op.current_scene = scenes_info[scene_name][rl_name][
-                        "current_scene"
-                    ]
+                },
+                {
+                    "operator": ToggleSceneNodesOperator.bl_idname,
+                    "data": scene,
+                    "path": "use_nodes",
+                    "operator_text": "",
+                    "op_props": {
+                        "scene_name": scene.name,
+                        "rl_name": rl_name,
+                        "new_state": not rl_majority_state,
+                        "current_scene": layer_info["current_scene"],
+                    },
+                    "scale_x": 1.0,
+                },
+            ],
+            icons=[
+                "NONE",
+                "CHECKMARK" if all_rl_nodes else "ERROR",
+                "RESTRICT_RENDER_ON" if rl_majority_state else "RESTRICT_RENDER_OFF",
+            ],
+        )
+
+
+def scene_panel(layout):
+    """Main function that combines all the modular pieces into the full panel UI."""
+    current_scene = bpy.context.scene
+    if not setup_base_scene_panel(layout, current_scene):
+        return
+    render_nodes = gather_render_nodes(current_scene)
+    scenes_info = build_scenes_info(render_nodes)
+
+    col = layout.column(align=True)
+
+    for scene_name in scenes_info:
+        build_scene_ui(col, scene_name, scenes_info, current_scene)
 
 
 def render_output_panel(layout):
@@ -202,8 +286,11 @@ def render_output_panel(layout):
     if scene.node_tree is None:
         return
 
-    display_composite_node_info(layout, scene)
-    display_file_output_info(layout, scene, all_paths)
+    column = layout.column(align=True)
+
+    display_composite_node_info(column, scene)
+    all_paths = get_file_paths_from_all_nodes(scene)
+    display_file_output_info(column, scene, all_paths)
 
 
 def check_and_display_errors(layout, scene):
@@ -218,92 +305,229 @@ def check_and_display_errors(layout, scene):
         row.prop(scene.render, "use_compositing", text="Use Compositing")
 
 
-def display_composite_node_info(layout, scene):
-    node_box = layout.box()
-    row = node_box.row()
-    row.label(text="File Output:", icon="FORWARD")
-    row.label(
-        text="Composite" if scene.use_nodes else "Output", icon="NODE_COMPOSITING"
-    )
+class BlenderUITable:
+    def __init__(
+        self,
+        layout,
+        headers,
+        header_icons=None,
+        row_scale=0.8,
+        header_scale=0.5,
+        column_widths=None,
+    ):
+        self.layout = layout
+        self.headers = headers
+        self.header_icons = header_icons or ["NONE"] * len(headers)
+        self.row_scale = row_scale
+        self.header_scale = header_scale
+        self.column_widths = column_widths or [1.0] * len(
+            headers
+        )  # Default to equal width scaling
+        self.create_headers()
+        self.parent_col = layout.column(align=True)
 
+    def create_headers(self):
+        row = self.layout.row(align=True)  # Create a single row to contain all columns
+        row.scale_y = self.header_scale  # Apply scaling to the entire row if needed
+
+        # Creating a column for each header and setting up labels within each
+        for header, icon, scale_x in zip(
+            self.headers, self.header_icons, self.column_widths
+        ):
+            col = row.column(
+                align=True
+            )  # Create a new column in the row for each header
+            if scale_x:
+                col.scale_x = (
+                    scale_x  # Apply horizontal scaling from the column_widths list
+                )
+            box = col.box()  # Create a box in the column
+            box.label(text=header, icon=icon)  # Add a label to the box
+
+    def add_row(self, properties, icons=None):
+        row = self.parent_col.row(align=True)
+        icons = icons or ["NONE"] * len(properties)
+        row.scale_y = self.row_scale  # Apply vertical scaling to the entire row
+
+        # Creating each column in the row
+        for prop, icon, scale_x in zip(properties, icons, self.column_widths):
+            col = row.column(align=True)
+            prop_scale_x = prop.get("scale_x", None)
+            if prop_scale_x:
+                scale_x = prop_scale_x
+
+            if scale_x:
+                col.scale_x = scale_x  # Apply the same horizontal scaling as in headers
+            col.enabled = prop.get("enabled", True)
+
+            if "label" in prop:
+                col.label(text=prop["label"], icon=icon)
+            elif "operator" in prop:
+                op = col.operator(
+                    prop["operator"], text=prop.get("operator_text", ""), icon=icon
+                )
+                for key, value in prop["op_props"].items():
+                    setattr(op, key, value)
+            else:
+                col.prop(prop["data"], prop["path"], text="", icon=icon)
+
+
+def display_composite_node_info(layout, scene):
     composite_nodes = [
         node for node in scene.node_tree.nodes if node.type == "COMPOSITE"
     ]
-    if composite_nodes:
-        select_op = row.operator(
-            SelectNodeOperator.bl_idname, icon="RESTRICT_SELECT_OFF"
-        )
-        select_op.node_name = composite_nodes[0].name
+
+    if len(composite_nodes) == 0:
+        composite_node = None
+        return
+    else:
+        composite_node = composite_nodes[0]
+
+    box = layout.box()
+    node_section = collapsable_node_section(box, composite_node)
+    if node_section is None:
+        return
 
     file_ext = IMAGE_TYPE_TO_EXTENSION.get(
         scene.render.image_settings.file_format, "unknown"
     )
-    row = node_box.row(align=True)
+    row = node_section.row(align=True)
     row.label(text=f"/{str(scene.frame_current).zfill(4)}.{file_ext}", icon="URL")
+
+
+def get_file_paths_from_all_nodes(scene):
+    all_paths = []
+    for node in scene.node_tree.nodes:
+        if node.type == "OUTPUT_FILE":
+            get_file_paths_from_slots(node, scene, all_paths)
+    return all_paths
 
 
 def display_file_output_info(layout, scene, all_paths):
     for node in scene.node_tree.nodes:
         if node.type == "OUTPUT_FILE":
-            node_box = layout.box()
-            row = node_box.row()
-            row.label(text="File Output Node:", icon="FORWARD")
-            row.label(text=node.name, icon="NODE")
-            select_op = row.operator(
-                SelectNodeOperator.bl_idname, icon="RESTRICT_SELECT_OFF"
-            )
-            select_op.node_name = node.name
-
-            formatted_base_path = format_path(node.base_path)
-            display_output_settings(
-                node_box, node, scene, formatted_base_path, all_paths
-            )
+            box = layout.box()
+            node_section = collapsable_node_section(box, node)
+            if node_section is None:
+                continue
+            display_file_slots(node_section, node, scene, all_paths)
 
 
-def format_path(base_path):
-    return base_path.rstrip("/\\") + (
-        "\\" if base_path.count("\\") > base_path.count("/") else "/"
+def get_file_paths_from_slots(node, scene, all_paths):
+    IMAGE_TYPE_TO_EXTENSION = {
+        "JPEG": "jpg",
+        "PNG": "png",
+        "OPEN_EXR_MULTILAYER": "exr",
+    }  # Dummy extension map
+
+    file_format = node.format.file_format
+    slots = (
+        node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
     )
 
-
-def display_output_settings(node_box, node, scene, formatted_base_path, all_paths):
-    file_format = node.format.file_format
-    row = node_box.row()
-    col = row.column(align=True)
-    col.label(text="Base Path")
-    col = row.column(align=True)
-    label_text = "Layer" if file_format == "OPEN_EXR_MULTILAYER" else "File Subpath"
-    col.label(text=label_text)
-    row.scale_y = 0.5
-
-    display_file_slots(node_box, node, scene, formatted_base_path, all_paths)
-
-
-def display_file_slots(node_box, node, scene, formatted_base_path, all_paths):
-    split = node_box.split()
-    col = split.column(align=True)
-    file_format = node.format.file_format
-    for slot in node.file_slots:
-        box = col.box()
-        row = box.row()
-        row.scale_y = 1.0
+    for slot in slots:
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
-        row.label(text="", icon="URL")
         if file_format != "OPEN_EXR_MULTILAYER":
-            row.label(
-                text=f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
-            )
+            file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            final_path = file_path
         else:
-            row.label(
-                text=f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            slot_name = slot.name
+            file_path = f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            final_path = file_path + f"/{slot_name}"
+
+        all_paths.append(final_path)
+
+
+def display_file_slots(node_box, node, scene, all_paths):
+    IMAGE_TYPE_TO_EXTENSION = {
+        "JPEG": "jpg",
+        "PNG": "png",
+        "OPEN_EXR_MULTILAYER": "exr",
+    }  # Dummy extension map
+
+    file_format = node.format.file_format
+    slots = (
+        node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
+    )
+
+    node_has_overlaps = False
+
+    for slot in slots:
+        file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
+        if file_format != "OPEN_EXR_MULTILAYER":
+            file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            final_path = file_path
+        else:
+            slot_name = slot.name
+            file_path = f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            final_path = file_path + f"/{slot_name}"
+
+        if all_paths.count(final_path) > 1:
+            print(f"Warning: Overlapping file paths detected: {final_path}")
+            node_has_overlaps = True
+
+    if node_box is None:
+        return all_paths
+
+    if file_format == "OPEN_EXR_MULTILAYER":
+        row = node_box.row()
+        col = row.column(align=True)
+        col.label(text="Multilayer Directory Name:")
+        col = row.column(align=True)
+        col.prop(node.octa_node_properties, "multilayer_directory", text="")
+
+    headers = [
+        "File Path" if file_format == "OPEN_EXR_MULTILAYER" else "Base Path",
+        "Layer Name" if file_format == "OPEN_EXR_MULTILAYER" else "File Path",
+    ]
+
+    header_icons = ["FILE_FOLDER", "RENDERLAYERS"]
+
+    if node_has_overlaps:
+        headers.append("Warnings")
+        header_icons.append("ERROR")
+
+    table = BlenderUITable(
+        node_box,
+        headers,
+        header_icons=header_icons,
+    )
+
+    padding = " " * 2
+
+    for slot in slots:
+        file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
+        if file_format != "OPEN_EXR_MULTILAYER":
+            file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            final_path = file_path
+        else:
+            slot_name = slot.name
+            file_path = f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            final_path = file_path + f"/{slot_name}"
+
+        row = [
+            {"label": f"{padding}{file_path}"},
+            {
+                "data": slot,
+                "path": "path" if file_format != "OPEN_EXR_MULTILAYER" else "name",
+            },
+        ]
+
+        if node_has_overlaps:
+            row.append(
+                {
+                    "label": (
+                        "Overlapping file paths detected!"
+                        if all_paths.count(final_path) > 1
+                        else ""
+                    ),
+                    "enabled": False,
+                }
             )
-        row.prop(slot, "path", text="")
-        if slot.path in all_paths:
-            row = node_box.row()
-            row.label(
-                text=f'Output Path "{str(slot.path)}" already in use!', icon="ERROR"
-            )
-        all_paths.append(slot.path)
+
+        table.add_row(row)
+
+    return all_paths
 
 
 def denoise_suggestion(layout, denoise_nodes):
@@ -359,6 +583,29 @@ def suggestion_draw(context, layout, suggestion_count=0, draw=True):
     return suggestion_count
 
 
+def content_manager(layout, context):
+    properties = context.scene.octa_properties
+    column = layout.column()
+
+    column.label(text="Only render what you want:")
+
+    scene_vis_box = section(
+        column, properties, "scene_visibility_visible", "Scene Rendering"
+    )
+
+    if scene_vis_box is not None:
+        scene_panel(scene_vis_box)
+
+    column.label(text="Get an overview of what you're outputting:")
+
+    section_box = section(
+        column, properties, "render_output_path_visible", "Render Output"
+    )
+
+    if section_box is not None:
+        render_output_panel(section_box)
+
+
 class OctaPanel(Panel):
     bl_idname = "SCENE_PT_octa_panel"
     bl_label = "Octa Render"
@@ -367,32 +614,68 @@ class OctaPanel(Panel):
     bl_context = "render"
     bl_options = {"DEFAULT_CLOSED"}
 
+    def draw_header(self, context):
+        layout = self.layout
+        icon_manager = IconManager()
+        layout.label(text="", icon_value=icon_manager.icons["custom_icon"].icon_id)
+
     def draw(self, context):
         properties = context.scene.octa_properties
         scene = context.scene
         layout = self.layout
 
         box = layout.box()
+        box.use_property_split = True
+        box.use_property_decorate = False
         box.prop(properties, "job_name")
         box.prop(properties, "render_format")
 
         box = layout.box()
-        row = box.row()
-        row.prop(properties, "match_scene", text="Match Scene Range")
-        row = box.row(align=True)
-        if properties.match_scene:
-            row.prop(context.scene, "frame_start")
-            row.prop(context.scene, "frame_end")
-            row.enabled = False
-        else:
-            row.prop(properties, "frame_start")
-            row.prop(properties, "frame_end")
-            row.enabled = True
-        row = box.row()
-        row.prop(properties, "batch_size")
+        box.use_property_split = True
+        box.use_property_decorate = False
 
         row = box.row()
-        row.operator(SubmitJobOperator.bl_idname)
+        row.prop(properties, "render_type", expand=True)
+
+        row = box.row()
+        row.prop(
+            properties,
+            "match_scene",
+            text=f"Match Scene {'Frame' if properties.render_type == 'IMAGE' else 'Frame Range'}",
+        )
+
+        col = box.column(align=True)
+
+        if properties.render_type == "ANIMATION":
+            col.prop(
+                scene if properties.match_scene else properties,
+                "frame_start",
+                text="Frame Start",
+            )
+            col.prop(
+                scene if properties.match_scene else properties, "frame_end", text="End"
+            )
+
+            row = box.row()
+            row.prop(properties, "batch_size")
+        else:
+            col.prop(
+                scene if properties.match_scene else properties,
+                "frame_current",
+                text="Frame",
+            )
+
+        if properties.match_scene:
+            col.enabled = False
+        else:
+            col.enabled = True
+
+        icons = IconManager().icons
+        row = box.row()
+        row.operator(
+            SubmitJobOperator.bl_idname,
+            icon_value=icons["custom_icon"].icon_id,
+        )
         if SubmitJobOperator.get_running():
             row = layout.row()
             row.progress(
@@ -405,28 +688,32 @@ class OctaPanel(Panel):
         )
         if box is not None:
             row = box.row()
-            row.prop(properties, "generate_video")
+            col = row.column()
+            col.label(text="Thumbnail Size:")
+            col.scale_x = 0.6
+            col = row.column()
+            col.prop(properties, "max_thumbnail_size", text="")
+            col.scale_x = 0.4
+
             row = box.row()
-            row.prop(properties, "max_thumbnail_size")
-            row = box.row()
-            row.prop(properties, "blender_version")
+            col = row.column()
+            col.label(text="Blender Version:")
+            col.scale_x = 0.6
+            col = row.column()
+            col.prop(properties, "blender_version", text="")
+            col.scale_x = 0.4
 
-            scene_vis_box = section(
-                box, properties, "scene_visibility_visible", "Scene Rendering"
-            )
+        content_manager_section = section(
+            layout, properties, "content_manager_visible", "Content Manager"
+        )
 
-            if scene_vis_box is not None:
-                scene_panel(scene_vis_box)
-
-            section_box = section(
-                box, properties, "render_output_path_visible", "Render Output"
-            )
-
-            if section_box is not None:
-                render_output_panel(section_box)
+        if content_manager_section is not None:
+            content_manager(content_manager_section, context)
 
         box = section(layout, properties, "download_section_visible", "Download")
         if box is not None:
+            box.use_property_split = True
+            box.use_property_decorate = False
             box.prop(properties, "dl_job_id")
 
             row = box.row()
@@ -436,7 +723,7 @@ class OctaPanel(Panel):
             row.prop(properties, "dl_threads")
 
             row = box.row()
-            row.operator(DownloadJobOperator.bl_idname)
+            row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
 
             if DownloadJobOperator.get_running():
                 row = layout.row()

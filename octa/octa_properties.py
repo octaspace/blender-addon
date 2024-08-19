@@ -13,7 +13,7 @@ class DownloadJobProperties:
 # class to be passed into thread
 class SubmitJobProperties:
     temp_blend_name: str
-
+    job_id: str
     job_name: str
     frame_start: int
     frame_end: int
@@ -51,14 +51,22 @@ class OctaNodeProperties(PropertyGroup):
 
 # scene properties
 class OctaProperties(PropertyGroup):
+
     job_name: bpy.props.StringProperty(
         name="Job Name", description="Job Name", default=""
     )
     frame_start: bpy.props.IntProperty(
-        name="Start Frame", description="Frame Start", default=1, min=1, max=100000
+        name="Start Frame",
+        description="Frame Start",
+        default=1,
+        min=1,
+        max=100000,
     )
     frame_end: bpy.props.IntProperty(
         name="End Frame", description="Frame End", default=1, min=1, max=100000
+    )
+    frame_current: bpy.props.IntProperty(
+        name="Current Frame", description="Current Frame", default=1, min=1
     )
     match_scene: bpy.props.BoolProperty(
         name="Match Scene", description="Match Scene", default=True
@@ -83,13 +91,29 @@ class OctaProperties(PropertyGroup):
         max=1,
     )
 
+    render_type: bpy.props.EnumProperty(
+        name="Render Type",
+        description="Choose the render type",
+        items=[
+            ("IMAGE", "Image", "Render a single image", "RENDER_STILL", 0),
+            (
+                "ANIMATION",
+                "Animation",
+                "Render an animation sequence",
+                "RENDER_ANIMATION",
+                1,
+            ),
+        ],
+        default="ANIMATION",
+    )
+
     render_format: bpy.props.EnumProperty(
         name="Render Format",
         description="Render Format",
         items=[
             ("PNG", "PNG", "PNG"),
             ("JPEG", "JPEG", "JPEG"),
-            ("OPEN_EXR", "OPEN_EXR", "OPEN_EXR"),
+            ("OPEN_EXR", "OpenEXR", "OpenEXR"),
             # ("TIFF", "TIFF", "TIFF"),
             # ("OPEN_EXR_MULTILAYER", "OpenEXR MultiLayer", "OpenEXR MultiLayer"),
             # ("BMP", "BMP", "BMP"),
@@ -104,14 +128,18 @@ class OctaProperties(PropertyGroup):
         default="blender41",
     )
 
-    max_thumbnail_size: bpy.props.IntProperty(
+    max_thumbnail_size: bpy.props.EnumProperty(
         name="Max Thumbnail Size",
         description="Max Thumbnail Size",
-        default=1024,
-        min=512,
-        max=4096,
-        subtype="PIXEL",
+        items=[
+            ("256", "256 px", "256 px"),
+            ("512", "512 px", "512 px"),
+            ("1024", "1024 px", "1024 px"),
+            ("2048", "2048 px", "2048 px"),
+        ],
+        default="1024",
     )
+
     generate_video: bpy.props.BoolProperty(
         name="Generate Video", description="Generate Video", default=False
     )
@@ -128,9 +156,9 @@ class OctaProperties(PropertyGroup):
     dl_threads: bpy.props.IntProperty(
         name="Download Threads",
         description="How many threads to use when downloading",
-        default=10,
+        default=8,
         min=1,
-        max=32,
+        max=8,
     )
 
     # section toggles
@@ -144,6 +172,10 @@ class OctaProperties(PropertyGroup):
     )
     scene_visibility_visible: get_section_toggle_type(
         name="Scene Visibility Section Visible"
+    )
+
+    content_manager_visible: get_section_toggle_type(
+        name="Content Manager Section Visible"
     )
 
     def update_dl_output_path(self):

@@ -13,12 +13,28 @@ bl_info = {
 
 import bpy.props
 import bpy.utils
+import bpy
+import os
+import bpy.utils.previews
+
+from bpy.types import Operator
+from bpy.utils import register_class, unregister_class, previews
+
+from .icon_manager import IconManager
+
 
 from .octa.octa_properties import OctaProperties, OctaNodeProperties
-from .octa.octa_panel import OctaPanel, SelectNodeOperator, ToggleSceneNodesOperator
+from .octa.octa_panel import (
+    OctaPanel,
+    SelectNodeOperator,
+    ToggleSceneNodesOperator,
+    ToggleVisibilityOperator,
+)
 
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
+
+icons_dict = None
 
 
 class Octa_Addon_Preferences(bpy.types.AddonPreferences):
@@ -41,13 +57,14 @@ classes = (
     DownloadJobOperator,
     Octa_Addon_Preferences,
     OctaNodeProperties,
+    ToggleVisibilityOperator,
 )
 
 
 def register():
+    IconManager()
     for cls in classes:
-        print("registerting " + str(cls))
-        bpy.utils.register_class(cls)
+        register_class(cls)
     bpy.types.Scene.octa_properties = bpy.props.PointerProperty(type=OctaProperties)
     bpy.types.Scene.show_expanded = bpy.props.BoolProperty(
         name="Show Expanded", default=False
@@ -58,8 +75,9 @@ def register():
 
 
 def unregister():
+    IconManager.unload_icons()
     for cls in classes:
-        bpy.utils.unregister_class(cls)
+        unregister_class(cls)
     del bpy.types.Scene.octa_properties
     del bpy.types.Scene.show_expanded
 

@@ -18,7 +18,7 @@ import subprocess
 import shutil
 
 
-def subprocess_unpacker():
+def subprocess_unpacker(job_properties):
     current_file_path = bpy.data.filepath
     blender_executable = bpy.app.binary_path
 
@@ -30,7 +30,9 @@ def subprocess_unpacker():
     if not current_file_path:
         return
 
-    folder = os.path.join(os.path.dirname(current_file_path), "_octa_")
+    folder = os.path.join(
+        os.path.dirname(current_file_path), f"{job_properties.job_id}_octa_"
+    )
     if not os.path.exists(folder):
         os.makedirs(folder)
 
@@ -65,10 +67,14 @@ def pack_blend(infile, zippath):
         packer.strategise()
         packer.execute()
 
+
 def wait_for_save():
-    while f'{os.path.split(bpy.data.filepath)[1]}@' in os.listdir(os.path.dirname(bpy.data.filepath)):
+    while f"{os.path.split(bpy.data.filepath)[1]}@" in os.listdir(
+        os.path.dirname(bpy.data.filepath)
+    ):
         print("@ Detected, Waiting for save to finish")
         time.sleep(0.25)
+
 
 # submit job operator
 class SubmitJobOperator(Operator):
@@ -150,7 +156,7 @@ class SubmitJobOperator(Operator):
 
         bpy.ops.wm.save_mainfile()
         wait_for_save()
-        temp_blend_name = subprocess_unpacker()
+        temp_blend_name = subprocess_unpacker(job_properties)
         wait_for_save()
         job_properties.temp_blend_name = temp_blend_name
 
@@ -164,6 +170,7 @@ class SubmitJobOperator(Operator):
         return {"RUNNING_MODAL"}
 
     def validate_properties(self, context):
+        scene = context.scene
         job_properties = SubmitJobProperties()
         fail_validation = False
         try:
@@ -172,23 +179,30 @@ class SubmitJobOperator(Operator):
                 fail_validation = True
 
             # get properties
-            properties = context.scene.octa_properties
+            properties = scene.octa_properties
             job_name = properties.job_name
             if len(job_name) <= 0:
                 self.report({"ERROR"}, "Job name is not set")
                 fail_validation = True
 
             job_properties.job_name = job_name
+            job_properties.job_id = int(time.time())
 
             print("job name: " + job_name)
 
-            if properties.match_scene:
-                scene = context.scene
-                frame_start = scene.frame_start
-                frame_end = scene.frame_end
+            if properties.render_type == "IMAGE":
+                frame_start = frame_end = (
+                    properties.frame_current
+                    if not properties.match_scene
+                    else scene.frame_current
+                )
             else:
-                frame_start = properties.frame_start
-                frame_end = properties.frame_end
+                if properties.match_scene:
+                    frame_start = scene.frame_start
+                    frame_end = scene.frame_end
+                else:
+                    frame_start = properties.frame_start
+                    frame_end = properties.frame_end
 
             job_properties.frame_start = frame_start
             job_properties.frame_end = frame_end
