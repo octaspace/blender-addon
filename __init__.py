@@ -20,7 +20,7 @@ import bpy.utils.previews
 from bpy.types import Operator
 from bpy.utils import register_class, unregister_class, previews
 
-from .icon_manager import IconManager
+from .octa.icon_manager import IconManager
 
 
 from .octa.octa_properties import OctaProperties, OctaNodeProperties

@@ -5,7 +5,7 @@ from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
 from .download_job_operator import DownloadJobOperator
 from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION
-from ..icon_manager import IconManager
+from .icon_manager import IconManager
 
 # Global dictionary to store visibility states
 visibility_states = {}
