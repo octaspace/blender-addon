@@ -36,7 +36,7 @@ def download_unzip(zip_hash: str):
             'assets/scripts/files/unzip.py',
             '--zip',
             '{node_folder}/{job_id}/input/package.zip',
-            '--folder',
+            '--extract-folder',
             '{node_folder}/{job_id}/input/',
             '--url',
             'https://render-data.octa.computer/{job_id}/input/package.zip',
