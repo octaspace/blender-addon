@@ -27,6 +27,7 @@ from .octa.octa_properties import OctaProperties, OctaNodeProperties
 from .octa.octa_panel import (
     OctaPanel,
     SelectNodeOperator,
+    ToggleNodeMuteOperator,
     ToggleSceneNodesOperator,
     ToggleVisibilityOperator,
 )
@@ -58,6 +59,7 @@ classes = (
     Octa_Addon_Preferences,
     OctaNodeProperties,
     ToggleVisibilityOperator,
+    ToggleNodeMuteOperator,
 )
 
 

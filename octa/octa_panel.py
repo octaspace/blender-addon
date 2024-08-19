@@ -47,6 +47,12 @@ def collapsable_node_section(layout, node=None):
         return layout
 
     row.operator(
+        ToggleNodeMuteOperator.bl_idname,
+        text="",
+        icon="RESTRICT_RENDER_ON" if node.mute else "RESTRICT_RENDER_OFF",
+    ).node_name = node.name
+
+    row.operator(
         SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF"
     ).node_name = node.name
 
@@ -111,6 +117,17 @@ class SelectNodeOperator(bpy.types.Operator):
         for n in context.scene.node_tree.nodes:
             n.select = True if n == node else False
         context.scene.node_tree.nodes.active = node
+        return {"FINISHED"}
+
+
+class ToggleNodeMuteOperator(bpy.types.Operator):
+    bl_idname = "scene.toggle_node_mute"
+    bl_label = "Toggle Node Mute"
+    node_name: bpy.props.StringProperty()
+
+    def execute(self, context):
+        node = context.scene.node_tree.nodes.get(self.node_name)
+        node.mute = not node.mute
         return {"FINISHED"}
 
 
@@ -279,7 +296,6 @@ def scene_panel(layout):
 
 def render_output_panel(layout):
     scene = bpy.context.scene
-    all_paths = []
 
     check_and_display_errors(layout, scene)
 
@@ -289,8 +305,8 @@ def render_output_panel(layout):
     column = layout.column(align=True)
 
     display_composite_node_info(column, scene)
-    all_paths = get_file_paths_from_all_nodes(scene)
-    display_file_output_info(column, scene, all_paths)
+    layer_paths, file_paths = get_file_paths_from_all_nodes(scene)
+    display_file_output_info(column, scene, layer_paths, file_paths)
 
 
 def check_and_display_errors(layout, scene):
@@ -396,24 +412,29 @@ def display_composite_node_info(layout, scene):
 
 
 def get_file_paths_from_all_nodes(scene):
-    all_paths = []
+    layer_paths = []
+    file_paths = []
+
     for node in scene.node_tree.nodes:
         if node.type == "OUTPUT_FILE":
-            get_file_paths_from_slots(node, scene, all_paths)
-    return all_paths
+            layer_paths, file_paths = get_file_paths_from_slots(
+                node, scene, layer_paths, file_paths
+            )
+
+    return layer_paths, file_paths
 
 
-def display_file_output_info(layout, scene, all_paths):
+def display_file_output_info(layout, scene, layer_paths, file_paths):
     for node in scene.node_tree.nodes:
         if node.type == "OUTPUT_FILE":
             box = layout.box()
             node_section = collapsable_node_section(box, node)
             if node_section is None:
                 continue
-            display_file_slots(node_section, node, scene, all_paths)
+            display_file_slots(node_section, node, scene, layer_paths, file_paths)
 
 
-def get_file_paths_from_slots(node, scene, all_paths):
+def get_file_paths_from_slots(node, scene, layer_paths, file_paths):
     IMAGE_TYPE_TO_EXTENSION = {
         "JPEG": "jpg",
         "PNG": "png",
@@ -425,20 +446,29 @@ def get_file_paths_from_slots(node, scene, all_paths):
         node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
     )
 
+    new_file_paths = []
+
     for slot in slots:
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
         if file_format != "OPEN_EXR_MULTILAYER":
             file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            new_file_paths.append(file_path)
             final_path = file_path
         else:
             slot_name = slot.name
             file_path = f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            new_file_paths.append(file_path)
             final_path = file_path + f"/{slot_name}"
 
-        all_paths.append(final_path)
+        layer_paths.append(final_path)
+
+    new_file_paths = list(set(new_file_paths))
+    file_paths.extend(new_file_paths)
+
+    return layer_paths, file_paths
 
 
-def display_file_slots(node_box, node, scene, all_paths):
+def display_file_slots(node_box, node, scene, layer_paths, file_paths):
     IMAGE_TYPE_TO_EXTENSION = {
         "JPEG": "jpg",
         "PNG": "png",
@@ -450,30 +480,43 @@ def display_file_slots(node_box, node, scene, all_paths):
         node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
     )
 
-    node_has_overlaps = False
+    node_has_layer_overlaps = False
+    node_has_file_overlaps = False
 
     for slot in slots:
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
         if file_format != "OPEN_EXR_MULTILAYER":
             file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            if file_paths.count(file_path) > 1:
+                node_has_file_overlaps = True
             final_path = file_path
         else:
             slot_name = slot.name
             file_path = f"/{node.octa_node_properties.multilayer_directory}/{str(scene.frame_current).zfill(4)}.exr"
+            if file_paths.count(file_path) > 1:
+                node_has_file_overlaps = True
             final_path = file_path + f"/{slot_name}"
 
-        if all_paths.count(final_path) > 1:
-            node_has_overlaps = True
+        if layer_paths.count(final_path) > 1:
+            node_has_layer_overlaps = True
 
     if node_box is None:
-        return all_paths
+        return layer_paths
 
     if file_format == "OPEN_EXR_MULTILAYER":
+        # if node_has_file_overlaps:
+        #     row = node_box.row()
+        #     row.label(
+        #         text="Multilayer directory name conflicts with other nodes!",
+        #     )
+        #     row.enabled = False
+
         row = node_box.row()
         col = row.column(align=True)
         col.label(text="Multilayer Directory Name:")
         col = row.column(align=True)
-        col.prop(node.octa_node_properties, "multilayer_directory", text="")
+        icon = "ERROR" if node_has_file_overlaps else "NONE"
+        col.prop(node.octa_node_properties, "multilayer_directory", text="", icon=icon)
 
     headers = [
         "File Path" if file_format == "OPEN_EXR_MULTILAYER" else "Base Path",
@@ -482,7 +525,7 @@ def display_file_slots(node_box, node, scene, all_paths):
 
     header_icons = ["FILE_FOLDER", "RENDERLAYERS"]
 
-    if node_has_overlaps:
+    if node_has_layer_overlaps or node_has_file_overlaps:
         headers.append("Warnings")
         header_icons.append("ERROR")
 
@@ -512,11 +555,13 @@ def display_file_slots(node_box, node, scene, all_paths):
             },
         ]
 
-        if node_has_overlaps:
+        if node_has_layer_overlaps or node_has_file_overlaps:
             row.append(
                 {
                     "label": (
-                        "Overwrite detected!" if all_paths.count(final_path) > 1 else ""
+                        "Overwrite detected!"
+                        if (layer_paths.count(final_path) > 1 or node_has_file_overlaps)
+                        else ""
                     ),
                     "enabled": False,
                 }
@@ -524,7 +569,7 @@ def display_file_slots(node_box, node, scene, all_paths):
 
         table.add_row(row)
 
-    return all_paths
+    return layer_paths
 
 
 def denoise_suggestion(layout, denoise_nodes):
@@ -534,6 +579,7 @@ def denoise_suggestion(layout, denoise_nodes):
     row.operator(
         SelectNodeOperator.bl_idname, text="", icon="RESTRICT_SELECT_OFF"
     ).node_name = denoise_nodes[0].name
+
     row = sug_box.row()
     row.label(
         text="The Denoising Node may be slow and incompatible with multilayer EXR files."
@@ -582,9 +628,9 @@ def suggestion_draw(context, layout, suggestion_count=0, draw=True):
 
 def content_manager(layout, context):
     properties = context.scene.octa_properties
-    column = layout.column()
-
-    column.label(text="Only render what you want:")
+    column = layout.column(align=True)
+    box = column.box()
+    box.label(text="Only render what you want:", icon="RESTRICT_RENDER_OFF")
 
     scene_vis_box = section(
         column, properties, "scene_visibility_visible", "Scene Rendering"
@@ -593,7 +639,9 @@ def content_manager(layout, context):
     if scene_vis_box is not None:
         scene_panel(scene_vis_box)
 
-    column.label(text="Get an overview of what you're outputting:")
+    column = layout.column(align=True)
+    box = column.box()
+    box.label(text="Choose what you want to output:", icon="OUTPUT")
 
     section_box = section(
         column, properties, "render_output_path_visible", "Render Output"
