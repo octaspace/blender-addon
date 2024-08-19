@@ -716,17 +716,26 @@ class OctaPanel(Panel):
             col.enabled = True
 
         icons = IconManager().icons
-        row = box.row()
-        row.operator(
-            SubmitJobOperator.bl_idname,
-            icon_value=icons["custom_icon"].icon_id,
-        )
-        if SubmitJobOperator.get_running():
-            row = layout.row()
+        col = box.column(align=True)
+
+        is_running = SubmitJobOperator.get_running()
+        is_running = True
+
+        if is_running:
+            row = col.row()
             row.progress(
                 text=SubmitJobOperator.get_progress_name(),
                 factor=SubmitJobOperator.get_progress(),
             )
+
+        row = col.row()
+        row.operator(
+            SubmitJobOperator.bl_idname,
+            icon_value=icons["custom_icon"].icon_id,
+        )
+
+        if is_running:
+            row.enabled = False
 
         box = section(
             layout, properties, "advanced_section_visible", "Advanced Options"
