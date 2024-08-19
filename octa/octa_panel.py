@@ -463,7 +463,6 @@ def display_file_slots(node_box, node, scene, all_paths):
             final_path = file_path + f"/{slot_name}"
 
         if all_paths.count(final_path) > 1:
-            print(f"Warning: Overlapping file paths detected: {final_path}")
             node_has_overlaps = True
 
     if node_box is None:
@@ -517,9 +516,7 @@ def display_file_slots(node_box, node, scene, all_paths):
             row.append(
                 {
                     "label": (
-                        "Overlapping file paths detected!"
-                        if all_paths.count(final_path) > 1
-                        else ""
+                        "Overwrite detected!" if all_paths.count(final_path) > 1 else ""
                     ),
                     "enabled": False,
                 }
