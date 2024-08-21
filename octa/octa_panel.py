@@ -719,7 +719,6 @@ class OctaPanel(Panel):
         col = box.column(align=True)
 
         is_running = SubmitJobOperator.get_running()
-        is_running = True
 
         if is_running:
             row = col.row()
