@@ -12,10 +12,10 @@ class WebUi():
 
     @classmethod
     async def set_host(cls, host):
-        cls.host = host
-        remote_version = await cls.get_version()
+        remote_version = await cls.get_version(host=host)
         if remote_version != cls.version:
             raise Exception(f"remote version {remote_version} does not match transfer manager version {cls.version}")
+        cls.host = host
 
     @classmethod
     def get_session(cls) -> aiohttp.ClientSession:
@@ -45,8 +45,8 @@ class WebUi():
                 await asyncio.sleep(tries + random.random())
 
     @classmethod
-    async def get_version(cls) -> str:
-        return await cls.request_with_retries('GET', f'{cls.host}/api/v1/transfer_manager_version')
+    async def get_version(cls, host=None) -> str:
+        return await cls.request_with_retries('GET', f'{host or cls.host}/api/v1/transfer_manager_version')
 
     @classmethod
     async def get_job_input_multipart_upload_info_full(cls, job_id, file_count: int) -> dict:
