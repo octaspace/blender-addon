@@ -107,6 +107,7 @@ def s3_upload():
 
 
 def print_input_folder_func(folder):
+    import os
     single_indent = "  "
     for root, dirs, files in os.walk(folder):
         level = root.replace(folder, '').count(os.sep)
