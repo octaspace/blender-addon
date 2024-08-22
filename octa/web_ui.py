@@ -1,57 +1,27 @@
 from .web_api_base import WebApiBase
-import json
 
 
 class WebUi(WebApiBase):
-    host: str = ''
+    host: str = ""
+    version = "20240820"
 
-    @classmethod
-    def set_host(cls, host):
-        cls.host = host
+    async def initialize(self, host):
+        remote_version = await self.get_version(host=host)
+        if remote_version != self.version:
+            raise Exception(f"remote version {remote_version} does not match transfer manager version {self.version}")
+        self.host = host
 
-    @classmethod
-    def get_version(cls):
-        return 42  # TODO: to ensure we dont run an outdated plugin
+    async def get_version(self, host=None) -> str:
+        return await self.request_with_retries("GET", f"{host or self.host}/api/v1/transfer_manager_version")
 
-    @classmethod
-    def get_job_input_multipart_upload_info_full(cls, job_id, file_count: int) -> dict:
-        url = f'{cls.host}/api/v1/get_job_input_multipart_upload_info_full/{job_id}/{file_count}'
-        response = cls.request_with_retries('GET', url)
-        text = response.data.decode()
-        return json.loads(text)
+    async def get_job_input_multipart_upload_info_full(self, job_id, file_count: int) -> dict:
+        url = f"{self.host}/api/v1/get_job_input_multipart_upload_info_full/{job_id}/{file_count}"
+        return await self.request_with_retries("GET", url)
 
-    @classmethod
-    def get_job_input_multipart_upload_info(cls, job_id) -> dict:
-        url = f'{cls.host}/api/v1/get_job_input_multipart_upload_info/{job_id}'
-        response = cls.request_with_retries('GET', url)
-        text = response.data.decode()
-        return json.loads(text)
+    async def complete_job_input_multipart_upload(self, key: str, bucket: str, upload_id: str, etags: dict):
+        url = f"{self.host}/api/v1/complete_job_input_multipart_upload"
+        return await self.request_with_retries("POST", url, json={"key": key, "bucket": bucket, "upload_id": upload_id, "etags": etags})
 
-    @classmethod
-    def get_multipart_signed_url(cls, key: str, bucket: str, upload_id: str, part_number: int):
-        response = cls.request_with_retries('POST', f'{cls.host}/api/v1/get_multipart_signed_url', body=json.dumps({
-            'key': key,
-            'bucket': bucket,
-            'upload_id': upload_id,
-            'part_number': part_number
-        }).encode())
-        return response.data.decode()
-
-    @classmethod
-    def complete_job_input_multipart_upload(cls, key: str, bucket: str, upload_id: str, etags: dict):
-        response = cls.request_with_retries('POST', f'{cls.host}/api/v1/complete_job_input_multipart_upload', body=json.dumps({
-            'key': key,
-            'bucket': bucket,
-            'upload_id': upload_id,
-            'etags': etags
-        }).encode())
-        return response.data.decode()
-
-    @classmethod
-    def abort_job_input_multipart_upload(cls, key: str, bucket: str, upload_id: str):
-        response = cls.request_with_retries('POST', f'{cls.host}/api/v1/abort_job_input_multipart_upload', body=json.dumps({
-            'key': key,
-            'bucket': bucket,
-            'upload_id': upload_id
-        }).encode())
-        return response.data.decode()
+    async def abort_job_input_multipart_upload(self, key: str, bucket: str, upload_id: str):
+        url = f"{self.host}/api/v1/abort_job_input_multipart_upload"
+        return await self.request_with_retries("POST", url, json={"key": key, "bucket": bucket, "upload_id": upload_id})

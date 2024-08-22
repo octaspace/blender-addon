@@ -1,0 +1,134 @@
+import time, os
+import httpx
+import asyncio
+import aiofiles
+from octa.util import get_file_md5_async, spawn_and_wait, worker
+from octa.web_ui import WebUi
+import uuid
+import math
+
+
+class Sessions:
+    uploads = {}
+    downloads = {}
+
+    @classmethod
+    def toJSON(cls):
+        return {
+            "uploads": [upload.toJSON() for upload in cls.uploads.values()],
+            "downloads": [download.toJSON() for download in cls.uploads.values()],
+        }
+
+
+class Upload:
+    def __init__(self, directory) -> None:
+        self.job_id = uuid.uuid4()
+        print(self.job_id)
+        self.session_id = int(time.time())
+        self.chunk_size = 25000000
+        self.progress = 0
+        self.input_path = directory
+        self.files = {}
+        self.file_count = 0
+        self.file_size = 0
+        self.root_path = None
+        self.client = httpx.AsyncClient(timeout=3600)
+        self.workers = {}
+        self.errors = {}
+        asyncio.run(self.get_files())
+
+    async def run(self):
+        await spawn_and_wait(self.workers, self.upload_worker, "upload", self.files.keys(), workers=4)
+
+    def toJSON(self):
+        return {
+            "session_id": self.session_id,
+            "progress": self.progress,
+            "input_path": self.input_path,
+            "files": self.files,
+            "file_count": self.file_count,
+            "file_size": self.file_size,
+            "root_path": self.root_path,
+        }
+
+    @worker("upload")
+    async def upload_worker(self, iteration):
+        print("iteration:", iteration)
+        file_path = list(self.files.keys())[iteration]
+        signed_urls = self.files[file_path]["signed_urls"]
+        file_chunks = self.read_chunks(file_path)
+        idx = 0
+        total_size = 0
+        etags = {}
+        async for chunk in file_chunks:
+            if idx < len(signed_urls):
+                url = signed_urls[idx]
+                print(url)
+                print("idx:", idx)
+                print(file_path)
+                response = await self.client.put(url, content=chunk, headers={"Content-Length": str(len(chunk))})
+                etags[idx + 1] = response.headers.get("ETag")
+                total_size += len(chunk)
+                print("total_size:", total_size)
+                idx += 1
+
+        file = self.files[file_path]
+        if file["chunk_count"] == len(etags):
+            WebUi.complete_job_input_multipart_upload(file["key"], file["bucket"], file["upload_id"], etags)
+        else:
+            WebUi.abort_job_input_multipart_upload(file["key"], file["bucket"], file["upload_id"])
+
+    @worker("get_job_input_multipart_upload_info_full")
+    async def url_signer_worker(self, iteration):
+        file_path = list(self.files.keys())[iteration]
+        chunk_count = self.files[file_path]["chunk_count"]
+        WebUi.host = "http://34.147.146.4"
+        response = WebUi.get_job_input_multipart_upload_info_full(self.job_id, chunk_count)
+        self.files[file_path]["signed_urls"] = response.get("links")
+        self.files[file_path]["key"] = response.get("key")
+        self.files[file_path]["bucket"] = response.get("bucket")
+        self.files[file_path]["upload_id"] = response.get("upload_id")
+
+    async def process_file(self, file_path):
+        if os.path.isfile(file_path):
+            path = os.path.abspath(file_path)
+            file_size = os.path.getsize(path)
+            file_hash = await get_file_md5_async(path)
+            chunk_count = math.ceil(file_size / self.chunk_size)
+            self.files[path] = {"progress": 0, "size": file_size, "hash": file_hash, "chunk_count": chunk_count}
+        else:
+            raise ValueError(f"File path {file_path} is not a valid file")
+
+    async def get_files(self):
+        if self.input_path:
+            if os.path.isfile(self.input_path):
+                await self.process_file(self.input_path)
+                self.root_path = os.path.dirname(os.path.abspath(self.input_path))
+            else:
+                for root, _, files in os.walk(self.input_path):
+                    for file in files:
+                        path = os.path.join(root, file)
+                        if os.path.isfile(path):
+                            await self.process_file(path)
+                self.root_path = os.path.abspath(self.input_path)
+
+            self.file_count = len(self.files)
+            self.file_size = sum(file["size"] for file in self.files.values())
+
+            await spawn_and_wait(self.workers, self.url_signer_worker, "get_job_input_multipart_upload_info_full", self.files.keys(), workers=4)
+
+    async def read_chunks(self, file_path):
+        async with aiofiles.open(file_path, "rb") as file_object:
+            while True:
+                data = await file_object.read(self.chunk_size)
+                if not data:
+                    break
+                self.files[file_path]["progress"] += len(data)
+                self.progress += len(data)
+                yield data
+
+
+if __name__ == "__main__":
+    upload = Upload(r"/home/jonas/Downloads/1724109797_octa_/temp.zip")
+    asyncio.run(upload.run())
+    print(upload.file_size)
