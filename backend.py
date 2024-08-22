@@ -20,6 +20,28 @@ class Sessions:
         }
 
 
+class File:
+    def __init__(self, path, chunk_size=25000000) -> None:
+        self.path = os.path.abspath(path)
+        self.size = os.path.getsize(path)
+        self.signed_urls = []
+        self.progress = 0
+        self.key = None
+        self.bucket = None
+        self.upload_id = None
+        self.hash = None
+        self.chunk_count = self.calculate_chunk_count(chunk_size)
+
+    async def calculate_hash(self):
+        self.hash = await get_file_md5_async(self.path)
+
+    def calculate_chunk_count(self, chunk_size):
+        return math.ceil(self.size / chunk_size)
+
+    def toJSON(self):
+        return {"path": self.path, "size": self.size, "hash": self.hash, "chunk_count": self.chunk_count, "progress": self.progress, "signed_urls": self.signed_urls}
+
+
 class Upload:
     def __init__(self, directory) -> None:
         self.job_id = uuid.uuid4()
@@ -39,6 +61,7 @@ class Upload:
 
     async def run(self):
         await spawn_and_wait(self.workers, self.upload_worker, "upload", self.files.keys(), workers=4)
+        await self.client.aclose()
 
     def toJSON(self):
         return {
@@ -55,7 +78,7 @@ class Upload:
     async def upload_worker(self, iteration):
         print("iteration:", iteration)
         file_path = list(self.files.keys())[iteration]
-        signed_urls = self.files[file_path]["signed_urls"]
+        signed_urls = self.files[file_path].signed_urls
         file_chunks = self.read_chunks(file_path)
         idx = 0
         total_size = 0
@@ -73,29 +96,27 @@ class Upload:
                 idx += 1
 
         file = self.files[file_path]
-        if file["chunk_count"] == len(etags):
-            WebUi.complete_job_input_multipart_upload(file["key"], file["bucket"], file["upload_id"], etags)
+        if file.chunk_count == len(etags):
+            await WebUi.complete_job_input_multipart_upload(file.key, file.bucket, file.upload_id, etags)
         else:
-            WebUi.abort_job_input_multipart_upload(file["key"], file["bucket"], file["upload_id"])
+            await WebUi.abort_job_input_multipart_upload(file.key, file.bucket, file.upload_id)
 
     @worker("get_job_input_multipart_upload_info_full")
     async def url_signer_worker(self, iteration):
         file_path = list(self.files.keys())[iteration]
-        chunk_count = self.files[file_path]["chunk_count"]
+        chunk_count = self.files[file_path].chunk_count
         WebUi.host = "http://34.147.146.4"
-        response = WebUi.get_job_input_multipart_upload_info_full(self.job_id, chunk_count)
-        self.files[file_path]["signed_urls"] = response.get("links")
-        self.files[file_path]["key"] = response.get("key")
-        self.files[file_path]["bucket"] = response.get("bucket")
-        self.files[file_path]["upload_id"] = response.get("upload_id")
+        response = await WebUi.get_job_input_multipart_upload_info_full(self.job_id, chunk_count)
+        self.files[file_path].signed_urls = response.get("links")
+        self.files[file_path].key = response.get("key")
+        self.files[file_path].bucket = response.get("bucket")
+        self.files[file_path].upload_id = response.get("upload_id")
 
     async def process_file(self, file_path):
         if os.path.isfile(file_path):
-            path = os.path.abspath(file_path)
-            file_size = os.path.getsize(path)
-            file_hash = await get_file_md5_async(path)
-            chunk_count = math.ceil(file_size / self.chunk_size)
-            self.files[path] = {"progress": 0, "size": file_size, "hash": file_hash, "chunk_count": chunk_count}
+            file = File(file_path)
+            await file.calculate_hash()
+            self.files[file.path] = file
         else:
             raise ValueError(f"File path {file_path} is not a valid file")
 
@@ -113,7 +134,7 @@ class Upload:
                 self.root_path = os.path.abspath(self.input_path)
 
             self.file_count = len(self.files)
-            self.file_size = sum(file["size"] for file in self.files.values())
+            self.file_size = sum(file.size for file in self.files.values())
 
             await spawn_and_wait(self.workers, self.url_signer_worker, "get_job_input_multipart_upload_info_full", self.files.keys(), workers=4)
 
@@ -123,7 +144,7 @@ class Upload:
                 data = await file_object.read(self.chunk_size)
                 if not data:
                     break
-                self.files[file_path]["progress"] += len(data)
+                self.files[file_path].progress += len(data)
                 self.progress += len(data)
                 yield data
 
