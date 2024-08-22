@@ -50,7 +50,7 @@ class Download(Item):
 
             with self.lock:
                 self.completed_downloads += 1
-                self.progress = self.completed_downloads / self.download_count
+                self.progress.set_of_finished(self.completed_downloads, self.download_count)
 
             logger.info(f"Downloaded {download.url} to {download.local_path}\n"
                         f"DL Time {dl_end - dl_start}ms | Save Time {save_end - save_start}ms\n"
@@ -107,7 +107,7 @@ class Download(Item):
         await asyncio.get_event_loop().run_in_executor(None, do_it)
         pool.close()
 
-        self.progress = 1
+        self.progress.set_value(1)
         logger.info("Download Complete")
 
     async def run(self):

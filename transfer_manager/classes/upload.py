@@ -10,6 +10,7 @@ import os
 import math
 import logging
 import sanic
+import webbrowser
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +79,8 @@ class Upload(Item):
                 logger.info(f"part {part_number} with offset {offset} and size {part_size}")
 
                 def _callback(fake_offset, fake_size):
-                    progress = (offset + fake_offset) / file_size
-                    self.progress = progress
+                    self.progress.set_of_finished(offset + fake_offset, file_size)
+                    self.sub_progress.set_of_finished(fake_offset, fake_size)
 
                 file_slice = FileSliceWithCallback(f, offset, part_size, _callback)
                 url = links[part_number - 1]  # WebUi.get_multipart_signed_url(key, bucket, upload_id, part_number)
@@ -137,6 +138,8 @@ class Upload(Item):
                 ),
             },
         )
+
+        webbrowser.open_new(f"{self.host}/project/{self.job_id}")
 
     async def run(self):
         try:

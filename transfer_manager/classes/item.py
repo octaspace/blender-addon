@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from .progress import Progress
 
 ITEM_STATUS_CREATED = 'created'
 ITEM_STATUS_RUNNING = 'running'
@@ -14,7 +15,8 @@ class ItemException(Exception):
 class Item(ABC):
     def __init__(self, id):
         self.id = id
-        self.progress: float = 0
+        self.progress = Progress()
+        self.sub_progress = Progress()
         self.status = ITEM_STATUS_CREATED
         self.status_text = ""
 
