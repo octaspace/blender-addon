@@ -35,7 +35,8 @@ class Item(ABC):
     def to_dict(self):
         return {
             "id": self.id,
-            "progress": self.progress,
+            "progress": self.progress.to_dict(),
+            "sub_progress": self.sub_progress.to_dict(),
             "status": self.status,
             "status_text": self.status_text
         }
