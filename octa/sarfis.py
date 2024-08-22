@@ -45,3 +45,8 @@ class Sarfis:
     def node_job(cls, host, job):
         result = UberApi.call(host, {'node_job': job})
         return result['node_job']
+
+    @classmethod
+    def get_job_details(cls,host,job_id):
+        result = UberApi.call(host, {'job_details': {"job_id":job_id}})
+        return result['job_details']

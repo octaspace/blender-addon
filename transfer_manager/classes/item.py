@@ -7,6 +7,10 @@ ITEM_STATUS_SUCCESS = 'success'
 ITEM_STATUS_FAILURE = 'failure'
 
 
+class ItemException(Exception):
+    pass
+
+
 class Item(ABC):
     def __init__(self, id):
         self.id = id
@@ -25,3 +29,11 @@ class Item(ABC):
     @abstractmethod
     def pause(self):
         pass
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "progress": self.progress,
+            "status": self.status,
+            "status_text": self.status_text
+        }
