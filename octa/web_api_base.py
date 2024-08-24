@@ -18,7 +18,7 @@ class WebApiBase:
                     if 200 <= response.status_code <= 299:
                         return response.json()
                     else:
-                        error_info = f"Status: {response.status_code}, Content: {await response.text()}"
+                        error_info = f"Status: {response.status_code}, Content: {response.text}"
                         raise httpx.HTTPStatusError(message=error_info, request=response.request, response=response)
             except httpx.HTTPStatusError as e:
                 print(f"HTTP Error on try {tries + 1} for {url}: {str(e)}")

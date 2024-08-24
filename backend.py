@@ -150,6 +150,6 @@ class Upload:
 
 
 if __name__ == "__main__":
-    upload = Upload(r"/home/jonas/Downloads/1724109797_octa_/temp.zip")
+    upload = Upload(r"/home/jonas/Desktop/package2.zip")
     asyncio.run(upload.run())
     print(upload.file_size)
