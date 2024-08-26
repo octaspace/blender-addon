@@ -22,6 +22,7 @@
 The modifier_xxx() functions all yield result.BlockUsage objects for external
 files used by the modifiers.
 """
+
 import logging
 import typing
 
@@ -317,3 +318,45 @@ def modifier_cloth(
     yield from _walk_point_cache(
         ctx, block_name, modifier.bfile, pointcache, cdefs.PTCACHE_EXT
     )
+
+
+# @mod_handler(cdefs.eModifierType_DynamicPaint)
+# def modifier_dynamic_paint(
+#     ctx: ModifierContext, modifier: blendfile.BlendFileBlock, block_name: bytes
+# ) -> typing.Iterator[result.BlockUsage]:
+#     my_log = log.getChild("modifier_dynamic_paint")
+
+#     # Get the canvas settings block
+#     canvas_settings = modifier.get_pointer(b"canvas")
+#     if canvas_settings is None:
+#         my_log.debug(
+#             "Modifier %r (%r) has no canvas_settings",
+#             modifier[b"modifier", b"name"],
+#             block_name,
+#         )
+#         return
+
+#     # Iterate through all surfaces linked to the canvas
+#     surface_link = canvas_settings.get_pointer(b"surfaces")
+
+#     while surface_link is not None:
+#         print(surface_link)
+#         surface = surface_link.dereference()  # Assuming surface_link is a pointer to a BlendFileBlock representing the surface
+#         if surface is None:
+#             break
+
+#         is_sequence = bool(surface[b"is_sequence"])
+#         cache_path, field = surface.get(b"cache_path", return_field=True)
+
+#         if cache_path:
+#             bpath = bpathlib.BlendPath(cache_path)
+#             yield result.BlockUsage(
+#                 surface,
+#                 bpath,
+#                 path_full_field=field,
+#                 is_sequence=is_sequence,
+#                 block_name=block_name,
+#             )
+
+#         # Move to the next surface in the linked list
+#         surface_link = surface.get_pointer(b"next")

@@ -51,7 +51,6 @@ class OctaNodeProperties(PropertyGroup):
 
 # scene properties
 class OctaProperties(PropertyGroup):
-
     job_name: bpy.props.StringProperty(
         name="Job Name", description="Job Name", default=""
     )
@@ -176,6 +175,12 @@ class OctaProperties(PropertyGroup):
 
     content_manager_visible: get_section_toggle_type(
         name="Content Manager Section Visible"
+    )
+
+    debug_zip: bpy.props.BoolProperty(
+        name="Debug ZIP",
+        description="Enable debug ZIP for additional logging",
+        default=False,
     )
 
     def update_dl_output_path(self):

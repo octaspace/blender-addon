@@ -205,6 +205,53 @@ class Struct:
 
         return field, offset
 
+    # def _field_get_listbase(
+    #     self,
+    #     file_header: header.BlendFileHeader,
+    #     fileobj: typing.IO[bytes],
+    #     field: "Field",
+    # ) -> typing.Any:
+    #     endian = file_header.endian
+    #     pointer_size = file_header.pointer_size
+
+    #     # Read start and end pointers of the ListBase
+    #     start_pointer = endian.read_pointer(fileobj, pointer_size)
+    #     end_pointer = endian.read_pointer(fileobj, pointer_size)  # Often not used
+
+    #     elements = []
+    #     current_pointer = start_pointer
+
+    #     # Log initial pointers for debugging
+    #     print(f"Start pointer: {start_pointer}, End pointer: {end_pointer}")
+
+    #     while current_pointer != 0:
+    #         if current_pointer < 0 or current_pointer >= fileobj.seek(0, os.SEEK_END):
+    #             print(f"Invalid pointer detected: {current_pointer}")
+    #             break  # Exit if the pointer is outside the valid range
+
+    #         # Seek to the element pointed by current_pointer
+    #         fileobj.seek(current_pointer, os.SEEK_SET)
+
+    #         # Assuming each element itself is a structured type that needs to be read
+    #         try:
+    #             element_data = self.read_structure(
+    #                 file_header, fileobj
+    #             )  # You will need to define how to read each element's structure
+    #             elements.append(element_data)
+    #         except Exception as e:
+    #             print(f"Failed to read structure at pointer {current_pointer}: {e}")
+    #             break
+
+    #         # Read the 'next' pointer stored in the current element to move to the next in the list
+    #         next_offset = (
+    #             ...
+    #         )  # Set this based on your understanding of the data structure
+    #         fileobj.seek(current_pointer + next_offset, os.SEEK_SET)
+    #         current_pointer = endian.read_pointer(fileobj, pointer_size)
+    #         print(f"Next element pointer: {current_pointer}")  # Debugging next pointer
+
+    #     return elements
+
     def field_get(
         self,
         file_header: header.BlendFileHeader,
@@ -253,6 +300,8 @@ class Struct:
             return field, self._field_get_char(
                 file_header, fileobj, field, null_terminated, as_str
             )
+        # if dna_type.dna_type_id == b"ListBase":
+        #     return field, self._field_get_listbase(file_header, fileobj, field)
 
         simple_readers = {
             b"uchar": endian.read_char,
@@ -261,6 +310,7 @@ class Struct:
             b"uint64_t": endian.read_ulong,
             b"float": endian.read_float,
         }
+
         try:
             simple_reader = simple_readers[dna_type.dna_type_id]
         except KeyError:
