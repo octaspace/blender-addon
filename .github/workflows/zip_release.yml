@@ -11,9 +11,9 @@ jobs:
         type: 'zip'
         filename: 'OctaRender.zip'
         exclusions: '*.git* /*node_modules/* .editorconfig'
-        
-    - name: Upload Release
-      uses: ncipollo/release-action@v1.12.0
+    - name: Upload Assets to Release with a wildcard
+      uses: csexton/release-asset-action@v3
       with:
-        artifacts: "OctaRender.zip"
-        token: ${{ secrets.GITHUB_TOKEN }}
+        pattern: "OctaRender.zip"
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        release-url: ${{ steps.create_release.outputs.upload_url }}
