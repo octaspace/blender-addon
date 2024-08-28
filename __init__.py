@@ -35,17 +35,31 @@ from .octa.octa_panel import (
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
 
+from .octa.util import section
+
 icons_dict = None
 
 
 class Octa_Addon_Preferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
+    debug_options: bpy.props.BoolProperty(name="Debug Options", default=False)
+
+    expand_debug_options: bpy.props.BoolProperty(
+        name="Expand Debug Options", default=False
+    )
+
     def draw(self, context):
         layout = self.layout
-        layout.operator(
-            "preferences.addon_refresh", text="Update Addon", icon="FILE_REFRESH"
+        debug_section = section(
+            layout, self, "expand_debug_options", "Advanced Options"
         )
+
+        if debug_section:
+            box = debug_section.box()
+            box.label(text="Developer Options")
+            row = box.row()
+            row.prop(self, "debug_options", text="Debug Options")
 
 
 # register

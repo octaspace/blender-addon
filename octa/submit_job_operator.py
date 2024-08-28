@@ -30,20 +30,26 @@ def subprocess_unpacker(job_properties):
     if not current_file_path:
         return
 
-    folder = os.path.join(
-        os.path.dirname(current_file_path), f"{job_properties.job_id}_octa_"
-    )
+    parent_dir = os.path.dirname(current_file_path)
+    folder = os.path.join(parent_dir, f"{job_properties.job_id}_octa_")
     if not os.path.exists(folder):
         os.makedirs(folder)
 
     print(folder)
 
-    temp_blend_name = os.path.join(
-        folder,
-        os.path.basename(bpy.data.filepath),
-    )
-
+    temp_blend_name = os.path.join(folder, os.path.basename(current_file_path))
     temp_blend_name = os.path.abspath(temp_blend_name)
+
+    # Determine the name of the cache folder
+    base_file_name = os.path.splitext(os.path.basename(current_file_path))[0]
+    cache_folder_name = f"blendcache_{base_file_name}"
+    cache_folder_path = os.path.join(parent_dir, cache_folder_name)
+
+    # Check if the cache folder exists and copy it
+    if os.path.exists(cache_folder_path):
+        destination_cache_folder = os.path.join(folder, cache_folder_name)
+        shutil.copytree(cache_folder_path, destination_cache_folder)
+        print(f"Copied cache folder to: {destination_cache_folder}")
 
     command = [
         blender_executable,
@@ -86,6 +92,8 @@ class SubmitJobOperator(Operator):
     _running = False
     _progress = 0
     _progress_name = ""
+
+    debug_zip: bpy.props.BoolProperty(name="Debug .zip", default=False)
 
     def __init__(self):
         self._run_thread: Thread = None
@@ -283,6 +291,10 @@ class SubmitJobOperator(Operator):
 
             print("packing blend")
             pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
+            if self.debug_zip:
+                print("DEBUG packed blend: ", temp_zip)
+                return
+
             print("packed blend, deleting temp blend file")
 
             self.set_progress_name("Uploading")
@@ -362,6 +374,7 @@ class SubmitJobOperator(Operator):
             self._set_running(False)
 
             try:
-                shutil.rmtree(str(Path(job_properties.temp_blend_name).parent))
+                if not self.debug_zip:
+                    shutil.rmtree(str(Path(job_properties.temp_blend_name).parent))
             except:
                 pass
