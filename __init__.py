@@ -1,4 +1,3 @@
-# blender addon info
 bl_info = {
     "name": "OctaSpace Blender Addon",
     "author": "OctaSpace",
@@ -24,6 +23,7 @@ from .octa.icon_manager import IconManager
 
 
 from .octa.octa_properties import OctaProperties, OctaNodeProperties
+from .octa.install_dependencies import InstallDependenciesOperator
 from .octa.octa_panel import (
     OctaPanel,
     SelectNodeOperator,
@@ -43,12 +43,53 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator(
-            "preferences.addon_refresh", text="Update Addon", icon="FILE_REFRESH"
-        )
+        col = layout.column(align=True)
+        if not InstallDependenciesOperator.get_installed_packages_initialized:
+            InstallDependenciesOperator.set_installed_packages()
+
+        _, missing_packages = InstallDependenciesOperator.check_dependencies_installed()
+
+        is_installing = InstallDependenciesOperator.get_running()
+
+        if is_installing:
+            row = col.row()
+            row.label(icon=InstallDependenciesOperator.get_progress_icon(), text="")
+            row.progress(
+                text=InstallDependenciesOperator.get_progress_name(),
+                factor=InstallDependenciesOperator.get_progress(),
+            )
+
+        if len(missing_packages) > 0:
+            row = col.row()
+            if not is_installing:
+                row.label(text="Missing dependencies", icon="ERROR")
+
+            row = col.row()
+            install_op = row.operator(
+                InstallDependenciesOperator.bl_idname,
+                icon="IMPORT",
+                text="Install Dependencies",
+            )
+            install_op.uninstall = False
+            if not is_installing:
+                row.enabled = True
+        else:
+            row = col.row()
+            if not is_installing:
+                row.label(text="All dependencies are installed", icon="SOLO_ON")
+
+            row = col.row()
+            uninstall_op = row.operator(
+                InstallDependenciesOperator.bl_idname,
+                icon="TRASH",
+                text="Uninstall Dependencies",
+            )
+            uninstall_op.uninstall = True
+
+            if not is_installing:
+                row.enabled = True
 
 
-# register
 classes = (
     OctaProperties,
     SubmitJobOperator,
@@ -60,6 +101,7 @@ classes = (
     OctaNodeProperties,
     ToggleVisibilityOperator,
     ToggleNodeMuteOperator,
+    InstallDependenciesOperator,
 )
 
 
