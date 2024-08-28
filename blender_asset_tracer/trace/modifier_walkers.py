@@ -320,43 +320,34 @@ def modifier_cloth(
     )
 
 
-# @mod_handler(cdefs.eModifierType_DynamicPaint)
-# def modifier_dynamic_paint(
-#     ctx: ModifierContext, modifier: blendfile.BlendFileBlock, block_name: bytes
-# ) -> typing.Iterator[result.BlockUsage]:
-#     my_log = log.getChild("modifier_dynamic_paint")
+@mod_handler(cdefs.eModifierType_DynamicPaint)
+def modifier_dynamic_paint(
+    ctx: ModifierContext, modifier: blendfile.BlendFileBlock, block_name: bytes
+) -> typing.Iterator[result.BlockUsage]:
+    my_log = log.getChild("modifier_dynamic_paint")
 
-#     # Get the canvas settings block
-#     canvas_settings = modifier.get_pointer(b"canvas")
-#     if canvas_settings is None:
-#         my_log.debug(
-#             "Modifier %r (%r) has no canvas_settings",
-#             modifier[b"modifier", b"name"],
-#             block_name,
-#         )
-#         return
+    canvas_settings = modifier.get_pointer(b"canvas")
+    if canvas_settings is None:
+        my_log.debug(
+            "Modifier %r (%r) has no canvas_settings",
+            modifier[b"modifier", b"name"],
+            block_name,
+        )
+        return
 
-#     # Iterate through all surfaces linked to the canvas
-#     surface_link = canvas_settings.get_pointer(b"surfaces")
+    surfaces = canvas_settings.get_pointer((b"surfaces", b"first"))
 
-#     while surface_link is not None:
-#         print(surface_link)
-#         surface = surface_link.dereference()  # Assuming surface_link is a pointer to a BlendFileBlock representing the surface
-#         if surface is None:
-#             break
+    for surface in blendfile.iterators.listbase(surfaces):
+        surface_block_name = block_name + b"%s.canvas_settings.surfaces[%d]"
+        point_cache = surface.get_pointer(b"pointcache")
+        if point_cache is None:
+            my_log.debug(
+                "Surface %r (%r) has no pointcache",
+                surface[b"surface", b"name"],
+                surface_block_name,
+            )
+            continue
 
-#         is_sequence = bool(surface[b"is_sequence"])
-#         cache_path, field = surface.get(b"cache_path", return_field=True)
-
-#         if cache_path:
-#             bpath = bpathlib.BlendPath(cache_path)
-#             yield result.BlockUsage(
-#                 surface,
-#                 bpath,
-#                 path_full_field=field,
-#                 is_sequence=is_sequence,
-#                 block_name=block_name,
-#             )
-
-#         # Move to the next surface in the linked list
-#         surface_link = surface.get_pointer(b"next")
+        yield from _walk_point_cache(
+            ctx, surface_block_name, modifier.bfile, point_cache, cdefs.PTCACHE_EXT
+        )

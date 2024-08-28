@@ -127,9 +127,7 @@ class BlendFile:
         self.blocks = []  # type: BFBList
         """BlendFileBlocks of this file, in disk order."""
 
-        self.code_index = collections.defaultdict(
-            list
-        )  # type: typing.Dict[bytes, BFBList]
+        self.code_index = collections.defaultdict(list)  # type: typing.Dict[bytes, BFBList]
         self.structs = []  # type: typing.List[dna.Struct]
         self.sdna_index_from_id = {}  # type: typing.Dict[bytes, int]
         self.block_from_addr = {}  # type: typing.Dict[int, BlendFileBlock]
