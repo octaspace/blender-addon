@@ -8,8 +8,10 @@ from .sarfis import Sarfis
 from .sarfis_operations import get_operations
 from bpy.types import Operator
 from threading import Thread
-from ..blender_asset_tracer.pack import zipped
-from ..blender_asset_tracer.blendfile import close_all_cached
+
+from blender_asset_tracer.blendfile import close_all_cached
+from blender_asset_tracer.pack import zipped
+
 from .octa_properties import SubmitJobProperties
 from .web_ui import WebUi
 from .util import get_all_render_passes, get_file_md5
@@ -18,58 +20,14 @@ import subprocess
 import shutil
 
 
-def subprocess_unpacker(job_properties):
-    current_file_path = bpy.data.filepath
-    blender_executable = bpy.app.binary_path
-
-    script_path = os.path.realpath(__file__)
-    dir_path = os.path.dirname(script_path)
-    subprocess_unpacker_script = os.path.join(dir_path, "subprocess_unpacker.py")
-    subprocess_unpacker_script = os.path.abspath(subprocess_unpacker_script)
-
-    if not current_file_path:
-        return
-
-    parent_dir = os.path.dirname(current_file_path)
-    folder = os.path.join(parent_dir, f"{job_properties.job_id}_octa_")
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-    print(folder)
-
-    temp_blend_name = os.path.join(folder, os.path.basename(current_file_path))
-    temp_blend_name = os.path.abspath(temp_blend_name)
-
-    # Determine the name of the cache folder
-    base_file_name = os.path.splitext(os.path.basename(current_file_path))[0]
-    cache_folder_name = f"blendcache_{base_file_name}"
-    cache_folder_path = os.path.join(parent_dir, cache_folder_name)
-
-    # Check if the cache folder exists and copy it
-    if os.path.exists(cache_folder_path):
-        destination_cache_folder = os.path.join(folder, cache_folder_name)
-        shutil.copytree(cache_folder_path, destination_cache_folder)
-        print(f"Copied cache folder to: {destination_cache_folder}")
-
-    command = [
-        blender_executable,
-        "-b",
-        current_file_path,
-        "--python",
-        subprocess_unpacker_script,
-        "--",
-        "-save_path",
-        temp_blend_name,
-    ]
-
-    subprocess.run(command)
-
-    return temp_blend_name
-
-
-def pack_blend(infile, zippath):
+def pack_blend(blend_path, production_path, zip_path):
     # print all of the functions in blender_asset_tracer
-    with zipped.ZipPacker(infile, infile.parent, zippath) as packer:
+
+    # bpath: blend file path
+    # ppath: parent directort / production path
+    # tpath: target path
+
+    with zipped.ZipPacker(blend_path, production_path, zip_path) as packer:
         packer.strategise()
         packer.execute()
 
@@ -164,9 +122,14 @@ class SubmitJobOperator(Operator):
 
         bpy.ops.wm.save_mainfile()
         wait_for_save()
-        temp_blend_name = subprocess_unpacker(job_properties)
-        wait_for_save()
-        job_properties.temp_blend_name = temp_blend_name
+
+        blend_file = Path(bpy.data.filepath)
+        # new_file_path = blend_file.with_name(
+        #     blend_file.stem + "_octa_" + blend_file.suffix
+        # )
+        # shutil.copy(blend_file, new_file_path)
+
+        job_properties.temp_blend_name = str(blend_file)
 
         self._run_thread = Thread(
             target=self.thread_run, daemon=True, args=[job_properties]
@@ -283,14 +246,14 @@ class SubmitJobOperator(Operator):
         self.set_progress_name("Copying blend file")
         self.set_progress(0)
         try:
-            # temp names
-            temp_zip = Path(job_properties.temp_blend_name).parent / "temp.zip"
-
             self.set_progress_name("Packing blend file")
             self.set_progress(0.2)
 
-            print("packing blend")
-            pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
+            temp_zip = Path(job_properties.temp_blend_name).parent / "temp.zip"
+            blend_path = Path(job_properties.temp_blend_name)
+            production_path = blend_path.parent
+
+            pack_blend(blend_path, production_path, temp_zip)
             if self.debug_zip:
                 print("DEBUG packed blend: ", temp_zip)
                 return
