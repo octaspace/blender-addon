@@ -37,6 +37,7 @@ class InstallDependenciesOperator(bpy.types.Operator):
 
     requirements_path = os.path.join(parent_of_parent_dir, "requirements.txt")
     download_directory = os.path.join(parent_of_parent_dir, "wheels")
+    custom_wheels_directory = os.path.join(parent_of_parent_dir, "custom_wheels")
 
     uninstall: bpy.props.BoolProperty(name="Uninstall", default=False)
 
@@ -232,6 +233,14 @@ class InstallDependenciesOperator(bpy.types.Operator):
                     if file.endswith(".whl") and req.split("==")[0] in file
                 ]
                 downloaded_wheels.extend(wheel_files)
+
+                custom_wheel_files = wheel_files = [
+                    os.path.join(self.custom_wheels_directory, file)
+                    for file in os.listdir(self.custom_wheels_directory)
+                    if file.endswith(".whl")
+                ]
+
+                downloaded_wheels.extend(custom_wheel_files)
 
             for index, wheel in enumerate(downloaded_wheels, start=1):
                 install_cmd = [python_exe, "-m", "pip", "install", wheel]
