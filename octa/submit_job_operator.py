@@ -7,8 +7,10 @@ import shutil
 from pathlib import Path
 from bpy.types import Operator
 from threading import Thread
-from ..blender_asset_tracer.pack import zipped
-from ..blender_asset_tracer.blendfile import close_all_cached
+
+from blender_asset_tracer.blendfile import close_all_cached
+from blender_asset_tracer.pack import zipped
+
 from .octa_properties import SubmitJobProperties
 from .transfer_manager import create_upload, ensure_running
 from .util import get_all_render_passes, unpack_octa_farm_config
@@ -53,39 +55,17 @@ def subprocess_unpacker():
 
     bpy.ops.wm.save_as_mainfile(filepath=temp_blend_name, copy=True, compress=True)
 
-    blender_executable = bpy.app.binary_path
 
-    script_path = os.path.realpath(__file__)
-    dir_path = os.path.dirname(script_path)
-    subprocess_unpacker_script = os.path.abspath(
-        os.path.join(dir_path, "subprocess_unpacker.py")
-    )
+def pack_blend(blend_path, production_path, zip_path):
+    # print all of the functions in blender_asset_tracer
 
-    # Determine the name of the cache folder
-    base_file_name = os.path.splitext(os.path.basename(current_file_path))[0]
-    cache_folder_name = f"blendcache_{base_file_name}"
-    cache_folder_path = os.path.join(parent_dir, cache_folder_name)
+    # bpath: blend file path
+    # ppath: parent directort / production path
+    # tpath: target path
 
-    # Check if the cache folder exists and copy it
-    if os.path.exists(cache_folder_path):
-        destination_cache_folder = os.path.join(folder, cache_folder_name)
-        shutil.copytree(cache_folder_path, destination_cache_folder)
-        print(f"Copied cache folder to: {destination_cache_folder}")
-
-    command = [
-        blender_executable,
-        "-b",
-        current_file_path,
-        "--python",
-        subprocess_unpacker_script,
-        "--",
-        "-save_path",
-        temp_blend_name,
-    ]
-
-    subprocess.run(command)
-
-    return temp_blend_name, folder
+    with zipped.ZipPacker(blend_path, production_path, zip_path) as packer:
+        packer.strategise()
+        packer.execute()
 
 
 def wait_for_save():
@@ -188,10 +168,16 @@ class SubmitJobOperator(Operator):
 
         self._set_running(True)
 
-        temp_blend_name, temp_work_folder = subprocess_unpacker()
-        wait_for_save()  # TODO: do we still need this?
-        job_properties.temp_work_folder = temp_work_folder
-        job_properties.temp_blend_name = temp_blend_name
+        bpy.ops.wm.save_mainfile()
+        wait_for_save()
+
+        blend_file = Path(bpy.data.filepath)
+        # new_file_path = blend_file.with_name(
+        #     blend_file.stem + "_octa_" + blend_file.suffix
+        # )
+        # shutil.copy(blend_file, new_file_path)
+
+        job_properties.temp_blend_name = str(blend_file)
 
         self._run_thread = Thread(
             target=self.thread_run, daemon=True, args=[job_properties]
@@ -329,14 +315,14 @@ class SubmitJobOperator(Operator):
         self.set_progress_name("Copying blend file")
         self.set_progress(0)
         try:
-            # temp names
-            temp_zip = Path(job_properties.temp_blend_name).parent / "temp.zip"
-
             self.set_progress_name("Packing blend file")
             self.set_progress(0.5)  # TODO: track progress of packing
 
-            print("packing blend")
-            self.pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
+            temp_zip = Path(job_properties.temp_blend_name).parent / "temp.zip"
+            blend_path = Path(job_properties.temp_blend_name)
+            production_path = blend_path.parent
+
+            pack_blend(blend_path, production_path, temp_zip)
             if self.debug_zip:
                 print("DEBUG packed blend: ", temp_zip)
                 return
