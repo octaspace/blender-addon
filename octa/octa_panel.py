@@ -720,9 +720,9 @@ class OctaPanel(Panel):
         debug_zip = False
         addon_prefs = get_preferences()
         if addon_prefs.debug_options:
-            row = col.row()
-            row.prop(properties, "debug_zip")
-            debug_zip = properties.debug_zip
+            debug_zip = addon_prefs.debug_zip
+
+            debug_cycles = addon_prefs.debug_cycles
 
         row = col.row()
         submit_op = row.operator(
@@ -731,6 +731,7 @@ class OctaPanel(Panel):
         )
 
         submit_op.debug_zip = debug_zip
+        submit_op.debug_cycles = debug_cycles
 
         if is_running:
             row.enabled = False

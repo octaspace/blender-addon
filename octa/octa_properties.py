@@ -177,11 +177,5 @@ class OctaProperties(PropertyGroup):
         name="Content Manager Section Visible"
     )
 
-    debug_zip: bpy.props.BoolProperty(
-        name="Debug ZIP",
-        description="Enable debug ZIP for additional logging",
-        default=False,
-    )
-
     def update_dl_output_path(self):
         self.dl_output_path = bpy.path.abspath(self.dl_output_path)

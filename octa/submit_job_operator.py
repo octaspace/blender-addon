@@ -52,6 +52,7 @@ class SubmitJobOperator(Operator):
     _progress_name = ""
 
     debug_zip: bpy.props.BoolProperty(name="Debug .zip", default=False)
+    debug_cycles: bpy.props.BoolProperty(name="Debug Cycles", default=False)
 
     def __init__(self):
         self._run_thread: Thread = None
@@ -324,6 +325,7 @@ class SubmitJobOperator(Operator):
                         job_properties.render_format,
                         job_properties.max_thumbnail_size,
                         zip_hash,
+                        debug_cycles=self.debug_cycles,
                     ),
                 },
             )

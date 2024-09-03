@@ -49,6 +49,18 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
         name="Expand Debug Options", default=False
     )
 
+    debug_zip: bpy.props.BoolProperty(
+        name="Debug ZIP",
+        description="Enable debug ZIP for additional logging",
+        default=False,
+    )
+
+    debug_cycles: bpy.props.BoolProperty(
+        name="Debug Cycles",
+        description="Enable debug Cycles for additional logging",
+        default=False,
+    )
+
     def draw(self, context):
         layout = self.layout
         debug_section = section(
@@ -60,6 +72,17 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
             box.label(text="Developer Options")
             row = box.row()
             row.prop(self, "debug_options", text="Debug Options")
+
+            if self.debug_options:
+                row = box.row()
+                row.label(text="Debug Options:")
+                row = box.row()
+                row.prop(self, "debug_zip")
+                debug_zip = self.debug_zip
+
+                row = box.row()
+                row.prop(self, "debug_cycles")
+                debug_cycles = self.debug_cycles
 
 
 # register
