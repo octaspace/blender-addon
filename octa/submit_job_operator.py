@@ -329,13 +329,10 @@ class SubmitJobOperator(Operator):
 
             print("packed blend, deleting temp blend file")
 
-            self.set_progress_name("Calling Transfer Manager")
-            self.set_progress(0.9)
-            try:
-                close_all_cached()
-                os.unlink(job_properties.temp_blend_name)
-            except PermissionError:
-                pass  # cant delete it cause the asset packer somehow still has an open handle on it. too bad
+            self.set_progress_name("Uploading")
+            self.set_progress(0.5)
+
+            close_all_cached()
 
             total_frames = job_properties.frame_end - job_properties.frame_start + 1
             if job_properties.batch_size != 1:
@@ -381,9 +378,3 @@ class SubmitJobOperator(Operator):
             self.set_progress_name("")
             self.set_progress(1)
             self._set_running(False)
-
-        try:
-            if not self.debug_zip:
-                shutil.rmtree(job_properties.temp_work_folder)
-        except:
-            pass
