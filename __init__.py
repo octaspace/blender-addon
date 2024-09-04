@@ -30,10 +30,12 @@ from .octa.octa_panel import (
     ToggleNodeMuteOperator,
     ToggleSceneNodesOperator,
     ToggleVisibilityOperator,
+    ToggleAddonSelectionOperator,
 )
 
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
+from .octa.zip_addons import ZIPAddonsOperator
 
 from .octa.util import section
 
@@ -122,6 +124,8 @@ classes = (
     ToggleVisibilityOperator,
     ToggleNodeMuteOperator,
     InstallDependenciesOperator,
+    ZIPAddonsOperator,
+    ToggleAddonSelectionOperator,
 )
 
 

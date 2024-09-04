@@ -117,6 +117,7 @@ def unpack_octa_farm_config(octa_farm_config: str) -> UserData:
 
 def section(layout, properties, toggle_name, title):
     box = layout.box()
+    box.use_property_split = False
     visible = getattr(properties, toggle_name)
     box.prop(
         properties,
