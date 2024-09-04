@@ -262,11 +262,8 @@ class SubmitJobOperator(Operator):
 
             self.set_progress_name("Uploading")
             self.set_progress(0.5)
-            try:
-                close_all_cached()
-                os.unlink(job_properties.temp_blend_name)
-            except PermissionError:
-                pass  # cant delete it cause the asset packer somehow still has an open handle on it. too bad
+
+            close_all_cached()
 
             job_id = int(time.time())
 
@@ -335,9 +332,3 @@ class SubmitJobOperator(Operator):
             self.set_progress_name("")
             self.set_progress(1)
             self._set_running(False)
-
-            try:
-                if not self.debug_zip:
-                    shutil.rmtree(str(Path(job_properties.temp_blend_name).parent))
-            except:
-                pass
