@@ -24,8 +24,8 @@ jobs:
       - name: Zip files
         run: |
           cd /tmp
-          rm -rf .git*
-          rm -f README.md
+          rm -rf OctaRender/.git*
+          rm -f OctaRender/README.md
           zip -r OctaRender.zip OctaRender
 
       # Step 4: Release Zip
