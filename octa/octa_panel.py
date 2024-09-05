@@ -778,33 +778,7 @@ class OctaPanel(Panel):
             debug_zip = properties.debug_zip
 
         row = col.row()
-        addon_zipper = ZIPAddonsOperator
-
         SubmitJobOperator.set_installed_addons()
-
-        addon_send_section = section(
-            col, properties, "addon_section_visible", "Included Addons"
-        )
-
-        if addon_send_section is not None:
-            row = addon_send_section.row()
-            row.label(text="Choose which addons to send to the farm:")
-
-            addon_col = addon_send_section.column(align=True)
-
-            if len(SubmitJobOperator.installed_addons) == 0:
-                addon_col.label(text="No Addons Enabled", icon="INFO")
-
-            for addon in SubmitJobOperator.installed_addons:
-                addon_name = [
-                    mod.bl_info.get("name")
-                    for mod in SubmitJobOperator.installed_addons
-                    if mod.__name__ == addon.__name__
-                ][0]
-                if "octaspace" not in addon_name.lower():
-                    addon_section(addon_col, addon.__name__, addon_name)
-
-        row = col.row()
 
         row = col.row()
         submit_op = row.operator(
@@ -837,6 +811,28 @@ class OctaPanel(Panel):
             col = row.column()
             col.prop(properties, "blender_version", text="")
             col.scale_x = 0.4
+
+            addon_send_section = section(
+                box, properties, "addon_section_visible", "Included Addons"
+            )
+
+            if addon_send_section is not None:
+                row = addon_send_section.row()
+                row.label(text="Choose which addons to send to the farm:")
+
+                addon_col = addon_send_section.column(align=True)
+
+                if len(SubmitJobOperator.installed_addons) == 0:
+                    addon_col.label(text="No Addons Enabled", icon="INFO")
+
+                for addon in SubmitJobOperator.installed_addons:
+                    addon_name = [
+                        mod.bl_info.get("name")
+                        for mod in SubmitJobOperator.installed_addons
+                        if mod.__name__ == addon.__name__
+                    ][0]
+                    if "octaspace" not in addon_name.lower():
+                        addon_section(addon_col, addon.__name__, addon_name)
 
         content_manager_section = section(
             layout, properties, "content_manager_visible", "Content Manager"
