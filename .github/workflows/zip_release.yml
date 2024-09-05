@@ -13,11 +13,19 @@ jobs:
       # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
-
+        
+      # Step 2: Move files to a folder named OctaRender
+      - name: Prepare folder structure
+        run: |
+          mkdir /tmp/OctaRender
+          cp -r ./* /tmp/OctaRender
+          
+      # Step 3: Zip files
       - name: Zip files
         run: |
-          zip -r OctaRender.zip ./*
+          zip -r OctaRender.zip /tmp/OctaRender
 
+      # Step 4: Release Zip
       - name: Upload zip to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
