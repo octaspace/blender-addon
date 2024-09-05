@@ -23,7 +23,10 @@ jobs:
       # Step 3: Zip files
       - name: Zip files
         run: |
-          cd /tmp && zip -r OctaRender.zip OctaRender
+          cd /tmp
+          rm -rf .git*
+          rm -f README.md
+          zip -r OctaRender.zip OctaRender
 
       # Step 4: Release Zip
       - name: Upload zip to GitHub Release
