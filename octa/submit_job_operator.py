@@ -2,8 +2,7 @@ import webbrowser
 import bpy
 import time
 import os
-import subprocess
-import shutil
+import json
 from pathlib import Path
 from bpy.types import Operator
 from threading import Thread
@@ -195,9 +194,13 @@ class SubmitJobOperator(Operator):
             mod for mod in self.installed_addons if mod.__name__ in addons_to_send
         ]
 
-        zip_path = zip_path / "addons"
+        enabled_addons = [
+            mod.bl_info["name"]
+            for mod in addon_utils.modules()
+            if addon_utils.check(mod.__name__)[1]
+        ]
 
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+        with zipfile.ZipFile(zip_path, "a", zipfile.ZIP_DEFLATED) as zipf:
             for addon in addons_to_send:
                 addon_path = Path(addon.__file__).parent
                 addon_name = addon.__name__
@@ -207,15 +210,11 @@ class SubmitJobOperator(Operator):
                     for file in files:
                         file_path = os.path.join(root, file)
                         zipf.write(
-                            file_path, os.path.join(addon_name, archive_root, file)
+                            file_path,
+                            os.path.join("addons", addon_name, archive_root, file),
                         )
 
-        enabled_addons = [
-            mod.bl_info["name"]
-            for mod in addon_utils.modules()
-            if addon_utils.check(mod.__name__)[1]
-        ]
-        print(enabled_addons)
+            zipf.writestr("enabled_addons.json", json.dumps(enabled_addons))
 
     def validate_properties(self, context):
         scene = context.scene

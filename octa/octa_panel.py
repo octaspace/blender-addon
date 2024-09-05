@@ -806,19 +806,13 @@ class OctaPanel(Panel):
 
         row = col.row()
 
-        zipper_op = row.operator(
-            ZIPAddonsOperator.bl_idname,
-            text="Zip Addons",
-        )
-
-        zipper_op.addons_to_send = ",".join(addons_to_send.keys())
-
         row = col.row()
         submit_op = row.operator(
             SubmitJobOperator.bl_idname,
             icon_value=icons["custom_icon"].icon_id,
         )
 
+        submit_op.addons_to_send = ",".join(addons_to_send.keys())
         submit_op.debug_zip = debug_zip
 
         if is_running:
