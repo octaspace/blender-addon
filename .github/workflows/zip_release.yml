@@ -1,19 +1,26 @@
-name: Create Archive
-on: [release]
+name: Release Zip
+
+on:
+  release:
+    types: 
+      - published
+
 jobs:
-  build:
+  zip-files:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@master
-    - name: Archive Release
-      uses: thedoctor0/zip-release@0.7.5
-      with:
-        type: 'zip'
-        filename: 'OctaRender.zip'
-        exclusions: '*.git* /*node_modules/* .editorconfig'
-    - name: Upload Assets to Release with a wildcard
-      uses: csexton/release-asset-action@v3
-      with:
-        pattern: "OctaRender.zip"
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        release-url: ${{ steps.create_release.outputs.upload_url }}
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Zip files
+        run: |
+          zip -r OctaRender.zip ./*
+
+      - name: Upload zip to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: OctaRender.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
