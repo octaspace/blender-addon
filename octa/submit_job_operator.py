@@ -211,7 +211,9 @@ class SubmitJobOperator(Operator):
                         file_path = os.path.join(root, file)
                         zipf.write(
                             file_path,
-                            os.path.join("addons", addon_name, archive_root, file),
+                            os.path.join(
+                                "scripts", "addons", addon_name, archive_root, file
+                            ),
                         )
 
             zipf.writestr("enabled_addons.json", json.dumps(enabled_addons))
