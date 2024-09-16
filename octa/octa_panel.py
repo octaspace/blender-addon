@@ -4,7 +4,12 @@ from pathlib import Path
 from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
 from .download_job_operator import DownloadJobOperator
-from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION
+from .util import (
+    get_all_render_passes,
+    get_preferences,
+    IMAGE_TYPE_TO_EXTENSION,
+    section,
+)
 from .icon_manager import IconManager
 
 # Global dictionary to store visibility states
@@ -156,21 +161,6 @@ class ToggleSceneNodesOperator(bpy.types.Operator):
                 rl.use = not self.new_state
 
         return {"FINISHED"}
-
-
-def section(layout, properties, toggle_name, title):
-    box = layout.box()
-    visible = getattr(properties, toggle_name)
-    box.prop(
-        properties,
-        toggle_name,
-        text=title,
-        icon="DOWNARROW_HLT" if visible else "RIGHTARROW",
-        emboss=False,
-    )
-    if visible:
-        return box
-    return None
 
 
 def setup_base_scene_panel(layout, current_scene):
@@ -719,7 +709,6 @@ class OctaPanel(Panel):
         col = box.column(align=True)
 
         is_running = SubmitJobOperator.get_running()
-        is_running = True
 
         if is_running:
             row = col.row()
@@ -728,11 +717,20 @@ class OctaPanel(Panel):
                 factor=SubmitJobOperator.get_progress(),
             )
 
+        debug_zip = False
+        addon_prefs = get_preferences()
+        if addon_prefs.debug_options:
+            row = col.row()
+            row.prop(properties, "debug_zip")
+            debug_zip = properties.debug_zip
+
         row = col.row()
-        row.operator(
+        submit_op = row.operator(
             SubmitJobOperator.bl_idname,
             icon_value=icons["custom_icon"].icon_id,
         )
+
+        submit_op.debug_zip = debug_zip
 
         if is_running:
             row.enabled = False

@@ -1,4 +1,7 @@
+import os
+
 import bpy
+from .sarfis_util import get_call_to_method_with_args
 
 
 def ffmpeg():
@@ -103,9 +106,35 @@ def s3_upload():
     return node
 
 
+def print_input_folder_func(folder):
+    import os
+    single_indent = "  "
+    for root, dirs, files in os.walk(folder):
+        level = root.replace(folder, '').count(os.sep)
+        indent = single_indent * level
+        print(f'{indent}{os.path.basename(root)}/')
+        subindent = indent + single_indent
+        for f in files:
+            print(f'{subindent}-{f}')
+
+
+def print_input_folder():
+    return {
+        "operation": "exe",
+        "arguments": {
+            "input": "python"
+        },
+        "variables": [
+            "-c",
+            get_call_to_method_with_args(print_input_folder_func, args={}, raw_args={0: "{node_folder}/{job_id}/input/"})
+        ]
+    }
+
+
 def get_operations(blend_file_name, render_format, max_thumbnail_size, zip_hash):
     return [
         download_unzip(zip_hash),
+        print_input_folder(),
         blender(blend_file_name=blend_file_name, render_format=render_format),
         thumbnails(max_size=max_thumbnail_size),
         s3_upload(),

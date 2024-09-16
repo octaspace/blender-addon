@@ -22,6 +22,7 @@
 The modifier_xxx() functions all yield result.BlockUsage objects for external
 files used by the modifiers.
 """
+
 import logging
 import typing
 
@@ -317,3 +318,36 @@ def modifier_cloth(
     yield from _walk_point_cache(
         ctx, block_name, modifier.bfile, pointcache, cdefs.PTCACHE_EXT
     )
+
+
+@mod_handler(cdefs.eModifierType_DynamicPaint)
+def modifier_dynamic_paint(
+    ctx: ModifierContext, modifier: blendfile.BlendFileBlock, block_name: bytes
+) -> typing.Iterator[result.BlockUsage]:
+    my_log = log.getChild("modifier_dynamic_paint")
+
+    canvas_settings = modifier.get_pointer(b"canvas")
+    if canvas_settings is None:
+        my_log.debug(
+            "Modifier %r (%r) has no canvas_settings",
+            modifier[b"modifier", b"name"],
+            block_name,
+        )
+        return
+
+    surfaces = canvas_settings.get_pointer((b"surfaces", b"first"))
+
+    for surface in blendfile.iterators.listbase(surfaces):
+        surface_block_name = block_name + b"%s.canvas_settings.surfaces[%d]"
+        point_cache = surface.get_pointer(b"pointcache")
+        if point_cache is None:
+            my_log.debug(
+                "Surface %r (%r) has no pointcache",
+                surface[b"surface", b"name"],
+                surface_block_name,
+            )
+            continue
+
+        yield from _walk_point_cache(
+            ctx, surface_block_name, modifier.bfile, point_cache, cdefs.PTCACHE_EXT
+        )
