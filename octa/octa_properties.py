@@ -17,6 +17,7 @@ class SubmitJobProperties:
     job_name: str
     frame_start: int
     frame_end: int
+    frame_step: int
     match_scene: bool
     batch_size: int
     render_output_path: str
@@ -64,6 +65,9 @@ class OctaProperties(PropertyGroup):
     frame_end: bpy.props.IntProperty(
         name="End Frame", description="Frame End", default=1, min=1, max=100000
     )
+    frame_step: bpy.props.IntProperty(
+        name="Frame Step", description="Frame Step", default=1, min=1
+    )
     frame_current: bpy.props.IntProperty(
         name="Current Frame", description="Current Frame", default=1, min=1
     )
@@ -72,6 +76,18 @@ class OctaProperties(PropertyGroup):
     )
     batch_size: bpy.props.IntProperty(
         name="Batch Size", description="Batch Size", default=1, min=1, max=100
+    )
+    batch_size_tmp: bpy.props.IntProperty(
+        name="Batch Size",
+        description="Variable batch size isn't currently supported for frame step sizes greater than 1.",
+        default=1,
+        min=1,
+        max=1,
+    )
+    batch_size_warning: bpy.props.BoolProperty(
+        name="Batch Size Warning",
+        description="Variable batch size isn't currently supported for frame step sizes greater than 1.",
+        default=False,
     )
     render_output_path: bpy.props.StringProperty(
         name="Render Output Path", description="Render Output Path", default=""

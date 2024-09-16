@@ -214,6 +214,7 @@ class SubmitJobOperator(Operator):
 
             job_properties.frame_start = frame_start
             job_properties.frame_end = frame_end
+            job_properties.frame_step = properties.frame_step
 
             print("frame range: " + str(frame_start) + "-" + str(frame_end))
             frame_count = frame_end - frame_start + 1
@@ -338,6 +339,11 @@ class SubmitJobOperator(Operator):
                     + (total_frames // job_properties.batch_size)
                     - 1
                 )
+            elif job_properties.frame_step > 1:
+                end = (
+                    job_properties.frame_end - job_properties.frame_start
+                ) // job_properties.frame_step
+                end += job_properties.frame_start
             else:
                 end = job_properties.frame_end
             Sarfis.node_job(
@@ -350,6 +356,7 @@ class SubmitJobOperator(Operator):
                         "start": job_properties.frame_start,
                         "batch_size": job_properties.batch_size,
                         "end": end,
+                        "frame_step": job_properties.frame_step,
                         "render_passes": get_all_render_passes(),
                         "render_format": job_properties.render_format,
                         "version": "1712359928",
@@ -361,6 +368,7 @@ class SubmitJobOperator(Operator):
                         job_properties.render_format,
                         job_properties.max_thumbnail_size,
                         zip_hash,
+                        job_properties.frame_step,
                     ),
                 },
             )
