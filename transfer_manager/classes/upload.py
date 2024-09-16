@@ -6,6 +6,7 @@ from .file_slice_with_callback import FileSliceWithCallback
 from ..sarfis_operations import get_operations
 from .user_data import UserData
 from typing import TypedDict
+from ..version import version
 import asyncio
 import os
 import math
@@ -40,9 +41,8 @@ class Upload(Transfer):
 
         self.job_id = get_next_id()
         self.retries = 3
-        self.task = None
+        self.run_task = None
         self.zip_hash: str = None
-        self.version = "20240822"
 
     async def run_init(self):
         self.zip_hash = get_file_md5(self.local_file_path)
@@ -123,7 +123,7 @@ class Upload(Transfer):
                     "end": end,
                     "render_passes": self.job_info['render_passes'],
                     "render_format": render_format,
-                    "version": self.version,
+                    "version": version,
                     "render_engine": self.job_info['render_engine'],
                     "blender_version": self.job_info['blender_version'],
                 },
@@ -154,7 +154,7 @@ class Upload(Transfer):
     def start(self):
         if self.status == TRANSFER_STATUS_CREATED:
             self.status = TRANSFER_STATUS_RUNNING
-            self.task = sanic.Sanic.get_app().add_task(self.run(), name=self.id)
+            self.run_task = sanic.Sanic.get_app().add_task(self.run(), name=self.id)
         elif self.status == TRANSFER_STATUS_PAUSED:
             self.status = TRANSFER_STATUS_RUNNING
 
