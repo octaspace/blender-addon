@@ -1,8 +1,11 @@
 def main():
     import sanic
+    import logging
     from sanic_ext import Extend
     from .middleware.user_data import user_data
     from .api.transfers import create_download, create_upload, get_all_transfers, get_transfer, delete_transfer, set_transfer_status
+
+    logging.basicConfig(level=logging.INFO)
 
     app = sanic.Sanic('octa_farm_manager')
     app.config.CORS_ORIGINS = "*"  # comma seperated list

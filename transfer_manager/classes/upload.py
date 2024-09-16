@@ -7,6 +7,7 @@ from ..sarfis_operations import get_operations
 from .user_data import UserData
 from typing import TypedDict
 from ..version import version
+from ..apis.r2_worker import AsyncR2Worker
 import asyncio
 import os
 import math
@@ -16,7 +17,7 @@ import webbrowser
 
 logger = logging.getLogger(__name__)
 
-UPLOAD_PART_SIZE = 25000000  # 25 MB
+UPLOAD_PART_SIZE = 25 * 1024 * 1024  # 25 MB
 
 
 class JobInformation(TypedDict):
@@ -42,26 +43,37 @@ class Upload(Transfer):
         self.job_id = get_next_id()
         self.retries = 3
         self.run_task = None
-        self.zip_hash: str = None
+        self.file_hash: str = None
+        self.file_size = 0
 
     async def run_init(self):
-        self.zip_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
+        self.file_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
 
     async def run_upload(self):
         with open(self.local_file_path, 'rb') as f:
             f.seek(0, os.SEEK_END)
-            file_size = f.tell()
+            self.file_size = f.tell()
 
-        part_count = math.ceil(file_size / UPLOAD_PART_SIZE)
-        logger.info(f"part count: {part_count}, file_size: {file_size}, part_size: {UPLOAD_PART_SIZE}")
+        if self.file_size < UPLOAD_PART_SIZE:
+            # r2 does not support multipart uploads for files < 5MB, lets not use multipart for files under the part size
+            await self.run_upload_single()
+        else:
+            await self.run_upload_multi()
+
+    async def run_upload_single(self):
+        pass
+
+    async def run_upload_multi(self):
+        part_count = math.ceil(self.file_size / UPLOAD_PART_SIZE)
+        logger.info(f"part count: {part_count}, file_size: {self.file_size}, part_size: {UPLOAD_PART_SIZE}")
 
         etags = {}
 
-        data = await WebUi.get_job_input_multipart_upload_info_full(self.user_data, self.job_id, part_count)
-        key = data['key']
-        bucket = data['bucket']
-        upload_id = data['upload_id']
-        links = data['links']
+        data = await AsyncR2Worker.create_multipart_upload(self.user_data, f"{self.job_id}/input/package.zip")
+
+        upload_id = data['uploadId']
+
+        # TODO: start seperate workers for parallel uploads
 
         with open(self.local_file_path, 'rb') as f:
             part_number = 1
@@ -69,14 +81,14 @@ class Upload(Transfer):
             while running and self.status != TRANSFER_STATUS_FAILURE:
                 offset = f.tell()
                 part_size = UPLOAD_PART_SIZE
-                if offset + UPLOAD_PART_SIZE > file_size:
-                    part_size = file_size - offset
+                if offset + UPLOAD_PART_SIZE > self.file_size:
+                    part_size = self.file_size - offset
                     running = False
 
                 logger.info(f"part {part_number} with offset {offset} and size {part_size}")
 
                 def _callback(fake_offset, fake_size):
-                    self.progress.set_of_finished(offset + fake_offset, file_size)
+                    self.progress.set_of_finished(offset + fake_offset, self.file_size)
                     self.sub_progress.set_of_finished(fake_offset, fake_size)
 
                 file_slice = FileSliceWithCallback(f, offset, part_size, _callback)
@@ -131,7 +143,7 @@ class Upload(Transfer):
                     os.path.basename(self.job_info['blend_name']),
                     render_format,
                     self.job_info['max_thumbnail_size'],
-                    self.zip_hash,
+                    self.file_hash,
                 ),
             },
         )

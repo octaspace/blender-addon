@@ -10,7 +10,7 @@ class WebApiBase:
     @classmethod
     def get_client(cls) -> httpx.AsyncClient:
         if cls.client is None:
-            cls.client = httpx.Client(timeout=5)
+            cls.client = httpx.Client(timeout=httpx.Timeout(10.0, read=60.0))
         return cls.client
 
     @classmethod
