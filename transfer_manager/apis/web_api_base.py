@@ -1,32 +1,31 @@
-import aiohttp
+import httpx
 import asyncio
 import random
 from traceback import print_exc
 
 
 class WebApiBase:
-    session = None
+    client = None
 
     @classmethod
-    def get_session(cls) -> aiohttp.ClientSession:
-        if cls.session is None:
-            timeout = aiohttp.ClientTimeout(total=3)
-            cls.session = aiohttp.ClientSession(timeout=timeout)
-        return cls.session
+    def get_client(cls) -> httpx.AsyncClient:
+        if cls.client is None:
+            cls.client = httpx.Client(timeout=5)
+        return cls.client
 
     @classmethod
     async def request_with_retries(cls, method: str, url: str, **kwargs):
-        session = cls.get_session()
+        client = cls.get_client()
         retries = 3
         tries = 0
         while True:
             error_info = ''
             try:
-                async with session.request(method, url, **kwargs) as response:
-                    if 200 <= response.status <= 299:
-                        return await response.json()
-                    else:
-                        error_info = f"status: {response.status}, {response.content}"
+                response = await client.request(method, url, **kwargs)
+                if 200 <= response.status_code <= 299:
+                    return response.json()
+                else:
+                    error_info = f"status: {response.status_code}\n{response.content}"
             except:
                 error_info = print_exc()
             finally:

@@ -1,35 +1,36 @@
-import random
-import urllib3
-import json
-import time
-import aiohttp
-import asyncio
-from traceback import print_exc
 from .web_api_base import WebApiBase
+from ..classes.user_data import UserData
 
 
-class UberApi(WebApiBase):
-    host: str = ''
-
-    @classmethod
-    async def set_host(cls, host):
-        # TODO: version check not possible with sarfis yet
-        cls.host = host
-
-    @classmethod
-    async def call(cls, host, endpoints):
-        url = f'{host}/qm/uber_api'  # /qm/ is the subdir for the octa node
-
-        return await cls.request_with_retries('POST', url, json=endpoints)
+class SarfisExeception(Exception):
+    pass
 
 
 class Sarfis:
     @classmethod
-    async def node_job(cls, host, job):
-        result = await UberApi.call(host, {'node_job': job})
-        return result['node_job']
+    async def call(cls, user_data: UserData, endpoints):
+        url = f'{user_data.farm_host}/qm/uber_api'
+        headers = {
+            "Auth-Token": user_data.qm_auth_token
+        }
+        return await WebApiBase.request_with_retries('POST', url, json=endpoints, headers=headers)
 
     @classmethod
-    async def get_job_details(cls, host, job_id):
-        result = await UberApi.call(host, {'job_details': {"job_id": job_id}})
-        return result['job_details']
+    def ensure_successful(cls, result_data: dict):
+        status = result_data['status']
+        body = result_data['body']
+        if status != 'success':
+            raise SarfisExeception(f"sarfis call status was not success: {status}\n{body}")
+        return body
+
+    @classmethod
+    async def node_job(cls, user_data: UserData, job):
+        result = await cls.call(user_data, {'node_job': job})
+        data = result['node_job']
+        return cls.ensure_successful(data)
+
+    @classmethod
+    async def get_job_details(cls, user_data: UserData, job_id):
+        result = await cls.call(user_data, {'job_details': {"job_id": job_id}})
+        data = result['job_details']
+        return cls.ensure_successful(data)

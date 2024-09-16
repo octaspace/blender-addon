@@ -1,9 +1,10 @@
-from .item import Item, ItemException, ITEM_STATUS_RUNNING, ITEM_STATUS_PAUSED, ITEM_STATUS_SUCCESS, ITEM_STATUS_FAILURE, ITEM_STATUS_CREATED
+from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
 from ..apis.webui import WebUi
 from ..apis.sarfis import Sarfis
 from ..util import get_next_id, get_file_md5
 from .file_slice_with_callback import FileSliceWithCallback
 from ..sarfis_operations import get_operations
+from .user_data import UserData
 from typing import TypedDict
 import asyncio
 import os
@@ -30,24 +31,20 @@ class JobInformation(TypedDict):
     max_thumbnail_size: int
 
 
-class Upload(Item):
-    def __init__(self, id, host, local_file_path, job_info: JobInformation):
-        super().__init__(id)
-        self.host = host
+class Upload(Transfer):
+    def __init__(self, user_data: UserData, local_file_path: str, job_info: JobInformation):
+        super().__init__(get_next_id(), "upload")
+        self.user_data = user_data
         self.local_file_path = local_file_path
         self.job_info = job_info
 
         self.job_id = get_next_id()
         self.retries = 3
         self.task = None
-        self.webui: WebUi = None
         self.zip_hash: str = None
         self.version = "20240822"
 
     async def run_init(self):
-        self.webui = WebUi()
-        await self.webui.initialize(self.host)
-
         self.zip_hash = get_file_md5(self.local_file_path)
 
     async def run_upload(self):
@@ -60,7 +57,7 @@ class Upload(Item):
 
         etags = {}
 
-        data = await self.webui.get_job_input_multipart_upload_info_full(self.job_id, part_count)
+        data = await WebUi.get_job_input_multipart_upload_info_full(self.user_data, self.job_id, part_count)
         key = data['key']
         bucket = data['bucket']
         upload_id = data['upload_id']
@@ -69,7 +66,7 @@ class Upload(Item):
         with open(self.local_file_path, 'rb') as f:
             part_number = 1
             running = True
-            while running and self.status != ITEM_STATUS_FAILURE:
+            while running and self.status != TRANSFER_STATUS_FAILURE:
                 offset = f.tell()
                 part_size = UPLOAD_PART_SIZE
                 if offset + UPLOAD_PART_SIZE > file_size:
@@ -84,23 +81,23 @@ class Upload(Item):
 
                 file_slice = FileSliceWithCallback(f, offset, part_size, _callback)
                 url = links[part_number - 1]  # WebUi.get_multipart_signed_url(key, bucket, upload_id, part_number)
-                response = await self.webui.request_with_retries('PUT', url, headers={
+                response = await WebUi.request_with_retries('PUT', url, headers={
                     'Content-Length': part_size
                 }, body=file_slice, retries=self.retries)
 
                 etags[part_number] = response.headers['ETag']
 
                 part_number += 1
-                while self.status == ITEM_STATUS_PAUSED:
+                while self.status == TRANSFER_STATUS_PAUSED:
                     await asyncio.sleep(3)
-        if self.status == ITEM_STATUS_FAILURE:
-            raise ItemException("aborted")
+        if self.status == TRANSFER_STATUS_FAILURE:
+            raise TransferException("aborted")
 
         if part_count == len(etags):
-            await self.webui.complete_job_input_multipart_upload(key, bucket, upload_id, etags)
+            await WebUi.complete_job_input_multipart_upload(self.user_data, key, bucket, upload_id, etags)
         else:
-            await self.webui.abort_job_input_multipart_upload(key, bucket, upload_id)
-            raise ItemException(f"expected etag count to be {part_count} but it was {len(etags)}")
+            await WebUi.abort_job_input_multipart_upload(self.user_data, key, bucket, upload_id)
+            raise TransferException(f"expected etag count to be {part_count} but it was {len(etags)}")
 
     async def run_job_create(self):
         frame_end = self.job_info['frame_end']
@@ -115,7 +112,7 @@ class Upload(Item):
 
         render_format = self.job_info['render_format']
         await Sarfis.node_job(
-            self.host + "/qm",
+            self.user_data,
             {
                 "job_data": {
                     "id": self.job_id,
@@ -139,39 +136,38 @@ class Upload(Item):
             },
         )
 
-        webbrowser.open_new(f"{self.host}/project/{self.job_id}")
+        webbrowser.open_new(f"{self.user_data.farm_host}/project/{self.job_id}")
 
     async def run(self):
         try:
             await self.run_init()
             await self.run_upload()
             await self.run_job_create()
-            self.status = ITEM_STATUS_SUCCESS
-        except ItemException as ex:
-            self.status = ITEM_STATUS_FAILURE
+            self.status = TRANSFER_STATUS_SUCCESS
+        except TransferException as ex:
+            self.status = TRANSFER_STATUS_FAILURE
             self.status_text = ex.args[0]
         except:
-            self.status = ITEM_STATUS_FAILURE
+            self.status = TRANSFER_STATUS_FAILURE
             self.status_text = 'unknown exception'
 
     def start(self):
-        if self.status == ITEM_STATUS_CREATED:
-            self.status = ITEM_STATUS_RUNNING
+        if self.status == TRANSFER_STATUS_CREATED:
+            self.status = TRANSFER_STATUS_RUNNING
             self.task = sanic.Sanic.get_app().add_task(self.run(), name=self.id)
-        elif self.status == ITEM_STATUS_PAUSED:
-            self.status = ITEM_STATUS_RUNNING
+        elif self.status == TRANSFER_STATUS_PAUSED:
+            self.status = TRANSFER_STATUS_RUNNING
 
     def stop(self):
-        if self.status != ITEM_STATUS_CREATED:
-            self.status = ITEM_STATUS_FAILURE
+        if self.status != TRANSFER_STATUS_CREATED:
+            self.status = TRANSFER_STATUS_FAILURE
 
     def pause(self):
-        if self.status == ITEM_STATUS_RUNNING:
-            self.status = ITEM_STATUS_PAUSED
+        if self.status == TRANSFER_STATUS_RUNNING:
+            self.status = TRANSFER_STATUS_PAUSED
 
     def to_dict(self):
         d = super().to_dict()
         d['local_file_path'] = self.local_file_path
         d['job_id'] = self.job_id
-        d['host'] = self.host
         return d

@@ -1,6 +1,6 @@
-from .item import Item, ItemException, ITEM_STATUS_RUNNING, ITEM_STATUS_PAUSED, ITEM_STATUS_SUCCESS, ITEM_STATUS_FAILURE, ITEM_STATUS_CREATED
+from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
 from ..apis.sarfis import Sarfis
-from ..util import IMAGE_TYPE_TO_EXTENSION
+from ..util import IMAGE_TYPE_TO_EXTENSION, get_next_id
 from dataclasses import dataclass
 from multiprocessing.pool import ThreadPool
 from ..apis.web_api_base_sync import WebApiBaseSync
@@ -22,10 +22,10 @@ class DownloadUnit:
     index: int
 
 
-class Download(Item):
-    def __init__(self, id, host, local_dir_path, job_id, download_threads):
-        super().__init__(id)
-        self.host = host
+class Download(Transfer):
+    def __init__(self, user_data, local_dir_path, job_id, download_threads):
+        super().__init__(get_next_id(), "download")
+        self.user_data = user_data
         self.local_dir_path = local_dir_path
         self.job_id = job_id
         self.download_threads = download_threads
@@ -59,7 +59,7 @@ class Download(Item):
             logger.warning(f"Failed to download {download.url}: {print_exc()}")
 
     async def run_download(self):
-        job = await Sarfis.get_job_details(self.host, self.job_id)
+        job = await Sarfis.get_job_details(self.user_data, self.job_id)
         render_passes = job['render_passes']
 
         downloads = []
@@ -113,28 +113,28 @@ class Download(Item):
     async def run(self):
         try:
             await self.run_download()
-            self.status = ITEM_STATUS_SUCCESS
-        except ItemException as ex:
-            self.status = ITEM_STATUS_FAILURE
+            self.status = TRANSFER_STATUS_SUCCESS
+        except TransferException as ex:
+            self.status = TRANSFER_STATUS_FAILURE
             self.status_text = ex.args[0]
         except:
-            self.status = ITEM_STATUS_FAILURE
+            self.status = TRANSFER_STATUS_FAILURE
             self.status_text = 'unknown exception'
 
     def start(self):
-        if self.status == ITEM_STATUS_CREATED:
-            self.status = ITEM_STATUS_RUNNING
+        if self.status == TRANSFER_STATUS_CREATED:
+            self.status = TRANSFER_STATUS_RUNNING
             self.task = sanic.Sanic.get_app().add_task(self.run(), name=self.id)
-        elif self.status == ITEM_STATUS_PAUSED:
-            self.status = ITEM_STATUS_RUNNING
+        elif self.status == TRANSFER_STATUS_PAUSED:
+            self.status = TRANSFER_STATUS_RUNNING
 
     def stop(self):
-        if self.status != ITEM_STATUS_CREATED:
-            self.status = ITEM_STATUS_FAILURE
+        if self.status != TRANSFER_STATUS_CREATED:
+            self.status = TRANSFER_STATUS_FAILURE
 
     def pause(self):
-        if self.status == ITEM_STATUS_RUNNING:
-            self.status = ITEM_STATUS_PAUSED
+        if self.status == TRANSFER_STATUS_RUNNING:
+            self.status = TRANSFER_STATUS_PAUSED
 
     def to_dict(self):
         d = super().to_dict()
