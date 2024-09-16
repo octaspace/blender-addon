@@ -45,7 +45,7 @@ class Upload(Transfer):
         self.zip_hash: str = None
 
     async def run_init(self):
-        self.zip_hash = get_file_md5(self.local_file_path)
+        self.zip_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
 
     async def run_upload(self):
         with open(self.local_file_path, 'rb') as f:

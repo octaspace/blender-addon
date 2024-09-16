@@ -9,7 +9,7 @@ def get_next_id() -> str:
 def get_file_md5(path: str) -> str:
     hasher = hashlib.md5()
     with open(path, 'rb') as f:
-        for chunk in iter(lambda: f.read(4096), b''):
+        for chunk in iter(lambda: f.read(16 * 1024 * 1024), b''):  # 16 megabytes at a time
             hasher.update(chunk)
     return hasher.hexdigest()
 
