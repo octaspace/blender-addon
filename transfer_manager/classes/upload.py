@@ -91,18 +91,18 @@ class Upload(Transfer):
 
     async def upload_worker(self, queue: asyncio.Queue):
         while self.status != TRANSFER_STATUS_FAILURE:
-            workorder: UploadWorkOrder = await queue.get()
-            if workorder is None:
+            workOrder: UploadWorkOrder = await queue.get()
+            if workOrder is None:
                 break
 
             while self.status == TRANSFER_STATUS_PAUSED:
                 await asyncio.sleep(1)
 
-            logger.info(f"part {workorder.part_number} with offset {workorder.offset} and size {workorder.size}")
-            self.file.seek(workorder.offset)
-            data = self.file.read(workorder.size)
+            logger.info(f"part {workOrder.part_number} with offset {workOrder.offset} and size {workOrder.size}")
+            self.file.seek(workOrder.offset)
+            data = self.file.read(workOrder.size)
 
-            result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, workorder.part_number, self.data_generator(data))
+            result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, workOrder.part_number, self.data_generator(data))
             self.etags.append(result)
 
     async def run_upload_multi(self):
@@ -115,7 +115,7 @@ class Upload(Transfer):
         data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)
         self.upload_id = data['uploadId']
 
-        # build queue of workorders
+        # build queue of workOrders
         queue = asyncio.Queue()
         for i in range(part_count - 1):
             queue.put_nowait(UploadWorkOrder(i * UPLOAD_PART_SIZE, UPLOAD_PART_SIZE, i + 1))
