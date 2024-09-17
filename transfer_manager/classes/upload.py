@@ -6,6 +6,7 @@ from .user_data import UserData
 from typing import TypedDict, BinaryIO
 from ..version import version
 from ..apis.r2_worker import AsyncR2Worker
+from .progress import Progress
 import asyncio
 import os
 import math
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 UPLOAD_PART_SIZE = 25 * 1024 * 1024  # 25 MB
 UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1MB
+UPLOAD_RETRIES = 3
 WORKER_COUNT = 4
 
 
@@ -73,7 +75,7 @@ class Upload(Transfer):
         else:
             await self.run_upload_multi()
 
-    async def data_generator(self, _data):
+    async def data_generator(self, _data, current_bytes: list, worker_progress: Progress):
         for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
             # TODO: no idea what will happen if we stall here indefinitely, could break, maybe resort to 1B/sec upload rate?
             while self.status == TRANSFER_STATUS_PAUSED:
@@ -81,29 +83,56 @@ class Upload(Transfer):
 
             chunk = _data[i:i + UPLOAD_CHUNK_SIZE]
             yield chunk
-            self.progress.increase_finished(len(chunk))
+            chunk_len = len(chunk)
+            current_bytes[0] += chunk_len
+            worker_progress.increase_finished(chunk_len)
+            self.progress.increase_finished(chunk_len)
 
     async def run_upload_single(self):
         with open(self.local_file_path, 'rb') as f:
             data = f.read()
 
-        await AsyncR2Worker.upload_single_part(self.user_data, self.url, self.data_generator(data))
+        tries = 0
+        while tries <= UPLOAD_RETRIES:
+            tries += 1
+            current_bytes = [0]
+            try:
+                await AsyncR2Worker.upload_single_part(self.user_data, self.url, self.data_generator(data, current_bytes))
+                break
+            except:
+                self.progress.finished = 0
+                if tries > UPLOAD_RETRIES:
+                    raise
 
     async def upload_worker(self, queue: asyncio.Queue):
-        while self.status != TRANSFER_STATUS_FAILURE:
-            workOrder: UploadWorkOrder = await queue.get()
-            if workOrder is None:
+        sub_progress = Progress()
+        self.sub_progresses.append(sub_progress)
+        while self.status != TRANSFER_STATUS_FAILURE:  # failure if another worker threw an exception
+            work_order: UploadWorkOrder = await queue.get()
+            if work_order is None:
                 break
+
+            sub_progress.set_of(work_order.size)
 
             while self.status == TRANSFER_STATUS_PAUSED:
                 await asyncio.sleep(1)
 
-            logger.info(f"part {workOrder.part_number} with offset {workOrder.offset} and size {workOrder.size}")
-            self.file.seek(workOrder.offset)
-            data = self.file.read(workOrder.size)
+            logger.info(f"part {work_order.part_number} with offset {work_order.offset} and size {work_order.size}")
+            self.file.seek(work_order.offset)
+            data = self.file.read(work_order.size)
 
-            result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, workOrder.part_number, self.data_generator(data))
-            self.etags.append(result)
+            tries = 0
+            while tries <= UPLOAD_RETRIES:
+                tries += 1
+                current_bytes = [0]
+                try:
+                    result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, work_order.part_number, self.data_generator(data, current_bytes, sub_progress))
+                    self.etags.append(result)
+                    break
+                except:
+                    self.progress.decrease_finished(current_bytes[0])
+                    if tries > UPLOAD_RETRIES:
+                        raise
 
     async def run_upload_multi(self):
         part_count = math.ceil(self.file_size / UPLOAD_PART_SIZE)
@@ -182,6 +211,7 @@ class Upload(Transfer):
             await self.run_init()
             await self.run_upload()
             await self.run_job_create()
+            self.progress.set_value(1)
             self.status = TRANSFER_STATUS_SUCCESS
         except TransferException as ex:
             self.status = TRANSFER_STATUS_FAILURE

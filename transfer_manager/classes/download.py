@@ -2,67 +2,74 @@ from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRAN
 from ..apis.sarfis import Sarfis
 from ..util import IMAGE_TYPE_TO_EXTENSION, get_next_id
 from dataclasses import dataclass
-from multiprocessing.pool import ThreadPool
-from ..apis.web_api_base_sync import WebApiBaseSync
-from traceback import print_exc
+from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
+from .progress import Progress
 import os
 import threading
 import logging
 import sanic
-import time
 import asyncio
+import httpx
 
 logger = logging.getLogger(__name__)
 
+DOWNLOAD_RETRIES = 3
+WORKER_COUNT = 4
+
 
 @dataclass
-class DownloadUnit:
+class DownloadWorkOrder:
     url: str
     local_path: str
-    index: int
+    download_number: int
 
 
 class Download(Transfer):
-    def __init__(self, user_data, local_dir_path, job_id, download_threads):
+    def __init__(self, user_data, local_dir_path, job_id):
         super().__init__(get_next_id(), "download")
         self.user_data = user_data
         self.local_dir_path = local_dir_path
         self.job_id = job_id
-        self.download_threads = download_threads
 
         self.retries = 3
         self.task = None
         self.lock = threading.Lock()
-        self.completed_downloads = 0
-        self.download_count = 0
 
-    def download_task(self, download):
-        try:
-            logger.info(f"Downloading file {download.index}/{self.download_count}")
-            dl_start = int(time.time() * 1000)
-            response = WebApiBaseSync.request_with_retries("GET", download.url)
-            dl_end = int(time.time() * 1000)
+    async def download_worker(self, queue: asyncio.Queue):
+        sub_progress = Progress()
+        self.sub_progresses.append(sub_progress)
+        while self.status != TRANSFER_STATUS_FAILURE:  # failure if another worker threw an exception
+            work_order: DownloadWorkOrder = await queue.get()
+            if work_order is None:
+                break
 
-            save_start = int(time.time() * 1000)
-            with open(download.local_path, "wb") as f:
-                f.write(response.data)
-            save_end = int(time.time() * 1000)
+            while self.status == TRANSFER_STATUS_PAUSED:
+                await asyncio.sleep(1)
 
-            with self.lock:
-                self.completed_downloads += 1
-                self.progress.set_of_finished(self.completed_downloads, self.download_count)
-
-            logger.info(f"Downloaded {download.url} to {download.local_path}\n"
-                        f"DL Time {dl_end - dl_start}ms | Save Time {save_end - save_start}ms\n"
-                        f"Size {len(response.data) / 1000 / 1000:.2f}MB")
-        except:
-            logger.warning(f"Failed to download {download.url}: {print_exc()}")
+            tries = 0
+            while tries <= DOWNLOAD_RETRIES:
+                tries += 1
+                try:
+                    with open(work_order.local_path, 'wb') as f:
+                        with httpx.stream("GET", work_order.url, params={"action": "get"}, headers={'authentication': self.user_data.api_token}) as response:
+                            file_size = int(response.headers["Content-Length"])
+                            sub_progress.set_of(file_size)
+                            sub_progress.set_finished(response.num_bytes_downloaded)
+                            for chunk in response.iter_bytes():
+                                f.write(chunk)
+                                sub_progress.set_finished(response.num_bytes_downloaded)
+                    break
+                except:
+                    sub_progress.set_finished(0)
+                    if tries > DOWNLOAD_RETRIES:
+                        raise
+            self.progress.increase_finished(1)
 
     async def run_download(self):
         job = await Sarfis.get_job_details(self.user_data, self.job_id)
         render_passes = job['render_passes']
 
-        downloads = []
+        downloads = asyncio.Queue()
 
         frame_start = job["start"]
         frame_end = job["end"]
@@ -81,9 +88,9 @@ class Download(Transfer):
                     os.makedirs(os.path.join(output_dir, file_name), exist_ok=True)
                     for t in range(frame_start, frame_end + 1):
                         file_full_name = f"{str(t).zfill(4)}.{file_ext}"
-                        url = f"https://render-data.octa.computer/{self.job_id}/output/{file_name}/{file_full_name}"
+                        url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{file_name}/{file_full_name}"
                         local_path = os.path.join(output_dir, file_name, file_full_name)
-                        downloads.append(DownloadUnit(url, local_path, download_index))
+                        downloads.put_nowait(DownloadWorkOrder(url, local_path, download_index))
                         download_index += 1
 
         os.makedirs(output_dir, exist_ok=True)
@@ -91,21 +98,19 @@ class Download(Transfer):
 
         for t in range(frame_start, frame_end + 1):
             file_full_name = f"{str(t).zfill(4)}.{file_ext}"
-            url = f"https://render-data.octa.computer/{self.job_id}/output/{file_full_name}"
+            url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{file_full_name}"
             local_path = os.path.join(output_dir, file_full_name)
-            downloads.append(DownloadUnit(url, local_path, download_index))
+            downloads.put_nowait(DownloadWorkOrder(url, local_path, download_index))
             download_index += 1
 
-        self.download_count = len(downloads)
-        self.completed_downloads = 0
+        self.progress.set_of(downloads.qsize())
 
-        pool = ThreadPool(self.download_threads)
+        worker_count = min(WORKER_COUNT, downloads.qsize())
+        for _ in range(worker_count):
+            downloads.put_nowait(None)  # one none per worker
 
-        def do_it():
-            pool.map(self.download_task, downloads)
-
-        await asyncio.get_event_loop().run_in_executor(None, do_it)
-        pool.close()
+        workers = [asyncio.create_task(self.download_worker(downloads)) for _ in range(worker_count)]
+        await asyncio.gather(*workers)
 
         self.progress.set_value(1)
         logger.info("Download Complete")

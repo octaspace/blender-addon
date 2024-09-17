@@ -16,7 +16,7 @@ async def create_upload(request: Request):
 
 async def create_download(request: Request):
     args = request.json
-    download = Download(request.ctx.user_data, args['local_dir_path'], args['job_id'], args['download_threads'])
+    download = Download(request.ctx.user_data, args['local_dir_path'], args['job_id'])
     transfer_manager.add(download)
     download.start()
     return json(download.id)

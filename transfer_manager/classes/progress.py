@@ -19,6 +19,11 @@ class Progress:
         if self.of > 0:
             self.value = self.finished / self.of
 
+    def decrease_finished(self,by):
+        self.finished -= by
+        if self.of > 0:
+            self.value = self.finished / self.of
+
     def set_of_finished(self, of, finished):
         self.of = of
         self.finished = finished

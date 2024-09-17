@@ -1,3 +1,5 @@
+from typing import List
+
 from abc import ABC, abstractmethod
 from .progress import Progress
 
@@ -16,7 +18,7 @@ class Transfer(ABC):
     def __init__(self, transfer_id: str, transfer_type: str):
         self.id = transfer_id
         self.progress = Progress()
-        self.sub_progress = Progress()
+        self.sub_progresses: List[Progress] = []
         self.status = TRANSFER_STATUS_CREATED
         self.status_text = ""
         self.type = transfer_type
