@@ -15,6 +15,7 @@ class AsyncR2Worker:
 
     @classmethod
     async def request(cls, user_data: UserData, method: str, url: str, **kwargs):
+        # TODO: retries here would break progress update
         client = cls.get_client()
         response = await client.request(method, url, headers={
             'authentication': user_data.api_token

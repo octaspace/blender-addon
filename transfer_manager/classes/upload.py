@@ -1,8 +1,6 @@
 from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
-from ..apis.webui import WebUi
 from ..apis.sarfis import Sarfis
 from ..util import get_next_id, get_file_md5
-from .file_slice_with_callback import FileSliceWithCallback
 from ..sarfis_operations import get_operations
 from .user_data import UserData
 from typing import TypedDict, BinaryIO
@@ -14,7 +12,6 @@ import math
 import logging
 import sanic
 import webbrowser
-import httpx
 
 logger = logging.getLogger(__name__)
 
