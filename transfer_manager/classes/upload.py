@@ -68,31 +68,31 @@ class Upload(Transfer):
             f.seek(0, os.SEEK_END)
             self.file_size = f.tell()
 
+        self.progress.set_of(self.file_size)
+
         if self.file_size < UPLOAD_PART_SIZE:
             # r2 does not support multipart uploads for files < 5MB, lets not use multipart for files under the part size
             await self.run_upload_single()
         else:
             await self.run_upload_multi()
 
+    async def data_generator(self, _data):
+        for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
+            # TODO: no idea what will happen if we stall here indefinitely, could break, maybe resort to 1B/sec upload rate?
+            while self.status == TRANSFER_STATUS_PAUSED:
+                await asyncio.sleep(1)
+
+            chunk = _data[i:i + UPLOAD_CHUNK_SIZE]
+            yield chunk
+            self.progress.increase_finished(len(chunk))
+
     async def run_upload_single(self):
         with open(self.local_file_path, 'rb') as f:
-            self.file = f
+            data = f.read()
 
-        async def data_generator(_data):
-            for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
-                chunk = _data[i:i + UPLOAD_CHUNK_SIZE]
-                yield chunk
-                self.progress.increase_finished(len(chunk))
-
-        pass
+        await AsyncR2Worker.upload_single_part(self.user_data, self.url, self.data_generator(data))
 
     async def upload_worker(self, queue: asyncio.Queue):
-        async def data_generator(_data):
-            for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
-                chunk = _data[i:i + UPLOAD_CHUNK_SIZE]
-                yield chunk
-                self.progress.increase_finished(len(chunk))
-
         while self.status != TRANSFER_STATUS_FAILURE:
             workorder: UploadWorkOrder = await queue.get()
             if workorder is None:
@@ -105,7 +105,7 @@ class Upload(Transfer):
             self.file.seek(workorder.offset)
             data = self.file.read(workorder.size)
 
-            result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, workorder.part_number, data_generator(data))
+            result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, workorder.part_number, self.data_generator(data))
             self.etags.append(result)
 
     async def run_upload_multi(self):
