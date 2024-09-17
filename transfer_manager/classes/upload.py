@@ -5,7 +5,7 @@ from ..util import get_next_id, get_file_md5
 from .file_slice_with_callback import FileSliceWithCallback
 from ..sarfis_operations import get_operations
 from .user_data import UserData
-from typing import TypedDict
+from typing import TypedDict, BinaryIO
 from ..version import version
 from ..apis.r2_worker import AsyncR2Worker
 import asyncio
@@ -14,10 +14,13 @@ import math
 import logging
 import sanic
 import webbrowser
+import httpx
 
 logger = logging.getLogger(__name__)
 
 UPLOAD_PART_SIZE = 25 * 1024 * 1024  # 25 MB
+UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1MB
+WORKER_COUNT = 4
 
 
 class JobInformation(TypedDict):
@@ -33,6 +36,13 @@ class JobInformation(TypedDict):
     max_thumbnail_size: int
 
 
+class UploadWorkOrder:
+    def __init__(self, offset, size, part_number):
+        self.offset = offset
+        self.size = size
+        self.part_number = part_number
+
+
 class Upload(Transfer):
     def __init__(self, user_data: UserData, local_file_path: str, job_info: JobInformation):
         super().__init__(get_next_id(), "upload")
@@ -43,8 +53,12 @@ class Upload(Transfer):
         self.job_id = get_next_id()
         self.retries = 3
         self.run_task = None
+        self.file: BinaryIO = None
         self.file_hash: str = None
         self.file_size = 0
+        self.upload_id = ""
+        self.url = ""
+        self.etags = []
 
     async def run_init(self):
         self.file_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
@@ -61,55 +75,71 @@ class Upload(Transfer):
             await self.run_upload_multi()
 
     async def run_upload_single(self):
+        with open(self.local_file_path, 'rb') as f:
+            self.file = f
+
+        async def data_generator(_data):
+            for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
+                chunk = _data[i:i + UPLOAD_CHUNK_SIZE]
+                yield chunk
+                self.progress.increase_finished(len(chunk))
+
         pass
+
+    async def upload_worker(self, queue: asyncio.Queue):
+        async def data_generator(_data):
+            for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
+                chunk = _data[i:i + UPLOAD_CHUNK_SIZE]
+                yield chunk
+                self.progress.increase_finished(len(chunk))
+
+        while self.status != TRANSFER_STATUS_FAILURE:
+            workorder: UploadWorkOrder = await queue.get()
+            if workorder is None:
+                break
+
+            while self.status == TRANSFER_STATUS_PAUSED:
+                await asyncio.sleep(1)
+
+            logger.info(f"part {workorder.part_number} with offset {workorder.offset} and size {workorder.size}")
+            self.file.seek(workorder.offset)
+            data = self.file.read(workorder.size)
+
+            result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, workorder.part_number, data_generator(data))
+            self.etags.append(result)
 
     async def run_upload_multi(self):
         part_count = math.ceil(self.file_size / UPLOAD_PART_SIZE)
+        worker_count = min(WORKER_COUNT, part_count)
         logger.info(f"part count: {part_count}, file_size: {self.file_size}, part_size: {UPLOAD_PART_SIZE}")
 
-        etags = {}
+        self.url = f"{self.job_id}/input/package.zip"
 
-        data = await AsyncR2Worker.create_multipart_upload(self.user_data, f"{self.job_id}/input/package.zip")
+        data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)
+        self.upload_id = data['uploadId']
 
-        upload_id = data['uploadId']
+        # build queue of workorders
+        queue = asyncio.Queue()
+        for i in range(part_count - 1):
+            queue.put_nowait(UploadWorkOrder(i * UPLOAD_PART_SIZE, UPLOAD_PART_SIZE, i + 1))
+        # add last part seperately
+        last_part_offset = (part_count - 1) * UPLOAD_PART_SIZE
+        queue.put_nowait(UploadWorkOrder(last_part_offset, self.file_size - last_part_offset, part_count))
 
-        # TODO: start seperate workers for parallel uploads
+        for _ in range(worker_count):
+            queue.put_nowait(None)  # one none per worker
 
-        with open(self.local_file_path, 'rb') as f:
-            part_number = 1
-            running = True
-            while running and self.status != TRANSFER_STATUS_FAILURE:
-                offset = f.tell()
-                part_size = UPLOAD_PART_SIZE
-                if offset + UPLOAD_PART_SIZE > self.file_size:
-                    part_size = self.file_size - offset
-                    running = False
-
-                logger.info(f"part {part_number} with offset {offset} and size {part_size}")
-
-                def _callback(fake_offset, fake_size):
-                    self.progress.set_of_finished(offset + fake_offset, self.file_size)
-                    self.sub_progress.set_of_finished(fake_offset, fake_size)
-
-                file_slice = FileSliceWithCallback(f, offset, part_size, _callback)
-                url = links[part_number - 1]  # WebUi.get_multipart_signed_url(key, bucket, upload_id, part_number)
-                response = await WebUi.request_with_retries('PUT', url, headers={
-                    'Content-Length': part_size
-                }, body=file_slice, retries=self.retries)
-
-                etags[part_number] = response.headers['ETag']
-
-                part_number += 1
-                while self.status == TRANSFER_STATUS_PAUSED:
-                    await asyncio.sleep(3)
-        if self.status == TRANSFER_STATUS_FAILURE:
-            raise TransferException("aborted")
-
-        if part_count == len(etags):
-            await WebUi.complete_job_input_multipart_upload(self.user_data, key, bucket, upload_id, etags)
-        else:
-            await WebUi.abort_job_input_multipart_upload(self.user_data, key, bucket, upload_id)
-            raise TransferException(f"expected etag count to be {part_count} but it was {len(etags)}")
+        try:
+            with open(self.local_file_path, 'rb') as f:
+                self.file = f
+                workers = [asyncio.create_task(self.upload_worker(queue)) for _ in range(worker_count)]
+                await asyncio.gather(*workers)
+            await AsyncR2Worker.complete_multipart_upload(self.user_data, self.url, self.upload_id, self.etags)
+        except:
+            await AsyncR2Worker.abort_multipart_upload(self.user_data, self.url, self.upload_id)
+            raise TransferException("exception during upload")  # TODO: craft a more meaningful exception
+        finally:
+            self.file = None
 
     async def run_job_create(self):
         frame_end = self.job_info['frame_end']

@@ -1,3 +1,8 @@
+async def index(request):
+    from sanic.response import text
+    return text("transfer manager")
+
+
 def main():
     import sanic
     import logging
@@ -22,6 +27,8 @@ def main():
     bp_api.add_route(set_transfer_status, "/transfers/<id:str>/status", methods=('PUT',))
 
     app.blueprint(bp_api)
+
+    app.add_route(index, '/', methods=('GET',))
 
     return app
 

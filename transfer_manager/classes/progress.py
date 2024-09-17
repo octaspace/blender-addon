@@ -14,6 +14,11 @@ class Progress:
         if self.of > 0:
             self.value = self.finished / self.of
 
+    def increase_finished(self, by):
+        self.finished += by
+        if self.of > 0:
+            self.value = self.finished / self.of
+
     def set_of_finished(self, of, finished):
         self.of = of
         self.finished = finished
@@ -23,6 +28,10 @@ class Progress:
     def set_value(self, value):
         self.value = value
         self.finished = int(value * self.of)
+
+    def increase_value(self, by):
+        self.value += by
+        self.finished = int(self.value * self.of)
 
     def to_dict(self):
         d = {
