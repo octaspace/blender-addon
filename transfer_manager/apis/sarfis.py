@@ -10,9 +10,9 @@ class Sarfis:
     @classmethod
     async def call(cls, user_data: UserData, endpoints):
         url = f'{user_data.farm_host}/qm/uber_api'
-        headers = {
-            "Auth-Token": user_data.qm_auth_token
-        }
+        headers = {}
+        if user_data.qm_auth_token:
+            headers["Auth-Token"] = user_data.qm_auth_token
         return await WebApiBase.request_with_retries('POST', url, json=endpoints, headers=headers)
 
     @classmethod

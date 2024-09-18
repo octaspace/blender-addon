@@ -7,6 +7,7 @@ from typing import TypedDict, BinaryIO
 from ..version import version
 from ..apis.r2_worker import AsyncR2Worker
 from .progress import Progress
+from traceback import print_exc
 import asyncio
 import os
 import math
@@ -69,6 +70,9 @@ class Upload(Transfer):
 
         self.progress.set_of(self.file_size)
 
+        self.url = f"{self.job_id}/input/package.zip"
+        logger.info(f"uploading to {self.url}")
+
         if self.file_size < UPLOAD_PART_SIZE:
             # r2 does not support multipart uploads for files < 5MB, lets not use multipart for files under the part size
             await self.run_upload_single()
@@ -92,12 +96,15 @@ class Upload(Transfer):
         with open(self.local_file_path, 'rb') as f:
             data = f.read()
 
+        sub_progress = Progress()
+        self.sub_progresses.append(sub_progress)
+
         tries = 0
         while tries <= UPLOAD_RETRIES:
             tries += 1
             current_bytes = [0]
             try:
-                await AsyncR2Worker.upload_single_part(self.user_data, self.url, self.data_generator(data, current_bytes))
+                await AsyncR2Worker.upload_single_part(self.user_data, self.url, self.data_generator(data, current_bytes, sub_progress))
                 break
             except:
                 self.progress.finished = 0
@@ -138,8 +145,6 @@ class Upload(Transfer):
         part_count = math.ceil(self.file_size / UPLOAD_PART_SIZE)
         worker_count = min(WORKER_COUNT, part_count)
         logger.info(f"part count: {part_count}, file_size: {self.file_size}, part_size: {UPLOAD_PART_SIZE}")
-
-        self.url = f"{self.job_id}/input/package.zip"
 
         data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)
         self.upload_id = data['uploadId']
@@ -216,9 +221,11 @@ class Upload(Transfer):
         except TransferException as ex:
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = ex.args[0]
+            logger.warning(f"upload failed: {print_exc()}")
         except:
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = 'unknown exception'
+            logger.warning(f"upload failed: {print_exc()}")
 
     def start(self):
         if self.status == TRANSFER_STATUS_CREATED:

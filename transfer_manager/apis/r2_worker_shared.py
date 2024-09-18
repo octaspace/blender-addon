@@ -9,6 +9,7 @@ def sanitize_path(path: str):
     # make sure path begins with slash
     if not path.startswith('/'):
         return '/' + path
+    return path
 
 
 def get_url(path: str):

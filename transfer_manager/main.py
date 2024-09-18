@@ -12,7 +12,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO)
 
-    app = sanic.Sanic('octa_farm_manager')
+    app = sanic.Sanic('octa_transfer_manager')
     app.config.CORS_ORIGINS = "*"  # comma seperated list
     Extend(app)
 
@@ -35,6 +35,6 @@ def main():
 
 if __name__ == '__main__':
     app = main()
-    app.run(host='0.0.0.0', port=7780)
+    app.run(host='0.0.0.0', port=7780, single_process=True, access_log=True, debug=True)
 else:
     main()
