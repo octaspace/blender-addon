@@ -14,13 +14,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Move files to a folder named OctaRender
+      # Step 2: Install Python
+      - name: Install Python
+        run: sudo apt update && sudo apt install -y python3
+
+      # Step 3: Print the release tag
+      - name: Print release tag
+        run: python3 -c print(${{ github.ref }})
+
+      # Step 4: Move files to a folder named OctaRender
       - name: Prepare folder structure
         run: |
           mkdir /tmp/OctaRender
           cp -r . /tmp/OctaRender
           
-      # Step 3: Zip files
+      # Step 5: Zip files
       - name: Zip files
         run: |
           cd /tmp
@@ -28,10 +36,11 @@ jobs:
           rm -f OctaRender/README.md
           zip -r OctaRender.zip OctaRender
 
-      # Step 4: Release Zip
+      # Step 6: Release Zip
       - name: Upload zip to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: /tmp/OctaRender.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
