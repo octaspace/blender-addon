@@ -20,12 +20,6 @@ class JobInformation(TypedDict):
     max_thumbnail_size: int
 
 
-class UserData(TypedDict):
-    farm_host: str
-    api_token: str
-    qm_auth_token: str
-
-
 def get_url(path):
     return f"{TM_HOST}/api{path}"
 

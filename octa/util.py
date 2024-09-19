@@ -25,6 +25,12 @@ IMAGE_TYPE_TO_EXTENSION = {
 }
 
 
+class UserData(TypedDict):
+    farm_host: str
+    api_token: str
+    qm_auth_token: str
+
+
 class RenderPass(TypedDict):
     name: str
     files: dict[str, str]
@@ -83,14 +89,18 @@ def get_all_render_passes() -> dict[str, RenderPass]:
     return render_passes
 
 
-def unpack_octa_farm_config(octa_farm_config: str) -> (str, str, str):
+def unpack_octa_farm_config(octa_farm_config: str) -> UserData:
     """
     unpacks the configuration string we get from frontend
     :param octa_farm_config:
-    :return: tuple of 3 strings: farm host, session cookie, queue manager auth token
+    :return: tuple of 3 strings: farm host, api token, queue manager auth token
     """
     lst = json.loads(base64.b64decode(octa_farm_config).decode())
-    return lst[0], lst[1], lst[2]
+    return {
+        "farm_host": lst[0],
+        "api_token": lst[1],
+        "qm_auth_token": lst[2]
+    }
 
 
 def get_file_md5(path: str) -> str:
