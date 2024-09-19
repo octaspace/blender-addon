@@ -20,7 +20,7 @@ jobs:
 
       # Step 3: Print the release tag
       - name: Print release tag
-        run: python3 -c print(${{ github.ref }})
+        run: python3 -c print("${{ github.ref }}")
 
       # Step 4: Move files to a folder named OctaRender
       - name: Prepare folder structure
