@@ -2,6 +2,9 @@ import bpy
 import base64
 import json
 import hashlib
+import sys
+import os
+import subprocess
 from typing import TypedDict
 
 IMAGE_TYPE_TO_EXTENSION = {
@@ -111,3 +114,45 @@ def section(layout, properties, toggle_name, title):
     if visible:
         return box
     return None
+
+
+def spawn_detached_process(command):
+    if sys.platform.startswith('win'):
+        # Windows
+        # TODO: use the other one once we want to hide it
+        CREATE_NEW_CONSOLE = 0x00000010
+        DETACHED_PROCESS = 0x00000008
+        return subprocess.Popen(command, creationflags=CREATE_NEW_CONSOLE, close_fds=True)
+    else:
+        # Unix-like systems (Linux, macOS)
+        return subprocess.Popen(command, preexec_fn=os.setsid, close_fds=True)
+
+
+def is_process_running(pid: int):
+    if sys.platform.startswith('win'):
+        # Windows
+        try:
+            # Use tasklist command to check if the process is running
+            output = subprocess.check_output(['tasklist', '/FI', f'PID eq {pid}'], creationflags=subprocess.CREATE_NO_WINDOW)
+            output = output.decode(errors='ignore')
+            if f"{pid}" in output:
+                return True
+        except subprocess.CalledProcessError:
+            pass
+    else:
+        # Unix-like systems (Linux, macOS)
+        try:
+            if sys.platform.startswith('linux'):
+                # Linux
+                os.kill(pid, 0)  # os.kill with signal 0 only checks for existence
+                return True
+            else:
+                # macOS
+                output = subprocess.check_output(['ps', '-p', str(pid)])
+                output = output.decode()
+                if f"{pid}" in output:
+                    return True
+        except (OSError, subprocess.CalledProcessError):
+            pass
+
+    return False

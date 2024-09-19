@@ -1,4 +1,7 @@
 import requests
+import sys
+import os
+from .util import spawn_detached_process, is_process_running
 from typing import TypedDict
 
 TM_HOST = "http://127.0.0.1:7780"
@@ -41,3 +44,24 @@ def create_download(local_dir_path: str, job_id: str, user_data: UserData):
         'job_id': job_id
     })
     return response.json()
+
+
+def ensure_running():
+    # TODO: call api instead to check if running?
+    def start_tm():
+        process = spawn_detached_process([
+            sys.executable,
+            '-m',
+            'transfer_manager.main'
+        ])
+
+        with open('tm.pid', 'wt') as f:
+            f.write(str(process.pid))
+
+    if os.path.isfile('tm.pid'):
+        with open('tm.pid', 'rt') as f:
+            pid = f.read()
+        if len(pid) < 1 or not is_process_running(int(pid)):
+            start_tm()
+    else:
+        start_tm()
