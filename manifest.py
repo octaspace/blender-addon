@@ -1,15 +1,33 @@
-import toml, sys, json, hashlib
+import toml, sys, json, hashlib, zipfile, os
 
 version = sys.argv[sys.argv.index("--version") + 1]
 version = version.split("/")[-1] if "/" in version else version
 
-with open("/tmp/OctaRender.zip", "rb") as archive:
-    archive_content = archive.read()
+addon_directory = "/tmp/OctaRender"
+exclude_files = ["__pycache__",
+                 ".git",
+                 ".github",
+                 ".gitignore",
+                 ".gitattributes",
+                 ".github",
+                 "README.md",
+                 "extensions_index.json",
+                 "manifest.py",                 
+                 "update_manifest.py"]
 
 with open("blender_manifest.toml", "r+") as f:
     manifest = toml.load(f)
     manifest['version'] = version
     toml.dump(manifest, f)
+
+with zipfile.ZipFile(f"{addon_directory}.zip", "w") as zip_archive:
+    for root, dirs, files in os.walk(addon_directory):
+        for file in files:
+            if file not in exclude_files:
+                zip_archive.write(os.path.join(root, file), os.path.join('OctaRender', os.path.relpath(os.path.join(root, file), addon_directory)))
+
+with open("/tmp/OctaRender.zip", "rb") as archive:
+    archive_content = archive.read()
 
 with open("blender_index.json", "r+") as f:
     index = json.load(f)
@@ -18,3 +36,7 @@ with open("blender_index.json", "r+") as f:
     index['data'][0]['archive_size'] = len(archive_content)
     index['data'][0]['archive_hash'] = f"sha256:{hashlib.sha256(archive_content).hexdigest()}"
     json.dump(index, f, indent=4)
+
+
+
+
