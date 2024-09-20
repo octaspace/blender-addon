@@ -29,7 +29,7 @@ with zipfile.ZipFile(f"{addon_directory}.zip", "w") as zip_archive:
 with open(f"{addon_directory}.zip", "rb") as archive:
     archive_content = archive.read()
 
-with open(os.path.join(addon_directory, "blender_index.json"), "r+") as f:
+with open(os.path.join(addon_directory, "extensions_index.json"), "r+") as f:
     index = json.load(f)
     index['data'][0]['version'] = version
     index['data'][0]['archive_url'] = f"https://github.com/octaspace/blender-addon/releases/download/{version}/OctaRender.zip"
