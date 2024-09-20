@@ -3,7 +3,7 @@ import toml, sys
 version = sys.argv[sys.argv.index("--version") + 1]
 
 if "/" in version:
-    version = version.split("/")[0]
+    version = version.split("/")[-1]
 
 print("Updating TOML to version", version)
 
