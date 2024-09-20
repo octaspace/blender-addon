@@ -1,6 +1,4 @@
 schema_version = "1.0.0"
-
-# Example of manifest file for Octa Render Blender extension
 id = "octa_render_extension"
 version = "1.0.0"
 name = "Octa Render"
@@ -8,27 +6,14 @@ tagline = "Extension for the Octa Render Farm"
 maintainer = "Octa Team <discord.com/invite/octaspace>"
 type = "add-on"
 website = "https://octa.space/"
-
 tags = ["Rendering", "Cloud", "Farm"]
-
 blender_version_min = "4.2.0"
-# blender_version_max = "5.1.0" # Optional: define if there are known incompatibilities with future versions
+license = ["SPDX:GPL-3.0-or-later"]
 
-license = ["SPDX:GPL-3.0-or-later"] # 'Regular license for extensions' assumed to be GPL-compatible
-
-# List of Python dependencies required by the extension
-# wheels = [
-#   "./wheels/sanic-22.3.0-py3-none-any.whl",
-#   "./wheels/aiofiles-0.8.0-py3-none-any.whl",
-#   "./wheels/httpx-0.23.0-py3-none-any.whl",
-# ]
-
-# Permissions needed by the extension
 [permissions]
 network = "Uploading and downloading files to/from the render farm"
 files = "Access to read and write render files"
 
-# Build settings to exclude unnecessary files from the build
 [build]
 paths_exclude_pattern = [
   "__pycache__/",
