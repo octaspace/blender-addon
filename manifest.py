@@ -15,7 +15,7 @@ exclude_files = ["__pycache__",
                  "manifest.py",                 
                  "update_manifest.py"]
 
-with open("blender_manifest.toml", "r+") as f:
+with open(os.path.join(addon_directory, "blender_manifest.toml"), "r+") as f:
     manifest = toml.load(f)
     manifest['version'] = version
     toml.dump(manifest, f)
@@ -24,12 +24,12 @@ with zipfile.ZipFile(f"{addon_directory}.zip", "w") as zip_archive:
     for root, dirs, files in os.walk(addon_directory):
         for file in files:
             if file not in exclude_files:
-                zip_archive.write(os.path.join(root, file), os.path.join('OctaRender', os.path.relpath(os.path.join(root, file), addon_directory)))
+                zip_archive.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), '/tmp/'))
 
-with open("/tmp/OctaRender.zip", "rb") as archive:
+with open(f"{addon_directory}.zip", "rb") as archive:
     archive_content = archive.read()
 
-with open("blender_index.json", "r+") as f:
+with open(os.path.join(addon_directory, "blender_index.json"), "r+") as f:
     index = json.load(f)
     index['data'][0]['version'] = version
     index['data'][0]['archive_url'] = f"https://github.com/octaspace/blender-addon/releases/download/{version}/OctaRender.zip"
