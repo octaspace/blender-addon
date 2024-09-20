@@ -3,7 +3,7 @@ import toml, sys, json, hashlib
 version = sys.argv[sys.argv.index("--version") + 1]
 version = version.split("/")[-1] if "/" in version else version
 
-with open("OctaRender.zip", "rb") as archive:
+with open("/tmp/OctaRender.zip", "rb") as archive:
     archive_content = archive.read()
 
 with open("blender_manifest.toml", "r+") as f:
