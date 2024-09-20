@@ -29,18 +29,9 @@ jobs:
       #Step 4: Update Manifest
       - name: Update Manifest
         run: |
-          cd /tmp/OctaRender
           python3 manifest.py --version ${{ github.ref }}
-        
-      # Step 5: Zip files
-      - name: Zip files
-        run: |
-          cd /tmp
-          rm -rf OctaRender/.git*
-          rm -f OctaRender/README.md
-          zip -r OctaRender.zip OctaRender
 
-      # Step 6: Release
+      # Step 5: Release
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
