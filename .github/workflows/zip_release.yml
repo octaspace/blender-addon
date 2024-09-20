@@ -19,16 +19,20 @@ jobs:
         run: sudo apt update && sudo apt install -y python3
 
       # Step 3: Print the release tag
-      - name: Print release tag
-        run: python3 -c "print('${{ github.ref }}')"
 
       # Step 4: Move files to a folder named OctaRender
       - name: Prepare folder structure
         run: |
           mkdir /tmp/OctaRender
           cp -r . /tmp/OctaRender
-          
-      # Step 5: Zip files
+
+      #Step 5: Update Manifest
+      - name: Update Manifest
+        run: |
+          cd /tmp/OctaRender
+          python3 manifest.py --version ${{ github.ref }}
+        
+      # Step 6: Zip files
       - name: Zip files
         run: |
           cd /tmp
@@ -36,11 +40,13 @@ jobs:
           rm -f OctaRender/README.md
           zip -r OctaRender.zip OctaRender
 
-      # Step 6: Release Zip
-      - name: Upload zip to GitHub Release
+      # Step 7: Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: /tmp/OctaRender.zip
+          files: |
+            /tmp/OctaRender.zip
+            /tmp/OctaRender/blender_manifest.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
