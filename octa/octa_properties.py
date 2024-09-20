@@ -6,14 +6,14 @@ from bpy.types import PropertyGroup
 class DownloadJobProperties:
     job_id: str
     output_path: str
-    octa_host: str
+    octa_farm_config: str
     download_threads: int
 
 
 # class to be passed into thread
 class SubmitJobProperties:
     temp_blend_name: str
-    job_id: str
+    temp_work_folder: str
     job_name: str
     frame_start: int
     frame_end: int
@@ -21,7 +21,7 @@ class SubmitJobProperties:
     match_scene: bool
     batch_size: int
     render_output_path: str
-    octa_host: str
+    octa_farm_config: str
     upload_threads: int
     render_format: str
     max_thumbnail_size: int
@@ -93,10 +93,10 @@ class OctaProperties(PropertyGroup):
         name="Render Output Path", description="Render Output Path", default=""
     )
 
-    octa_host: bpy.props.StringProperty(
-        name="Octa Host",
-        description="The Host of the Web UI (e.g. http://127.0.0.1:51800)",
-        default="http://34.147.146.4/",
+    octa_farm_config: bpy.props.StringProperty(
+        name="Octa Farm Config",
+        description="The configuration token retrieved from your render farm",
+        default="",
     )
     upload_threads: bpy.props.IntProperty(
         name="Upload Threads",

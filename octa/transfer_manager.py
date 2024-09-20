@@ -1,7 +1,8 @@
 import requests
 import sys
 import os
-from .util import spawn_detached_process, is_process_running
+import time
+from .util import spawn_detached_process, is_process_running, UserData
 from typing import TypedDict
 
 TM_HOST = "http://127.0.0.1:7780"
@@ -10,6 +11,7 @@ TM_HOST = "http://127.0.0.1:7780"
 class JobInformation(TypedDict):
     frame_start: int
     frame_end: int
+    frame_step: int
     batch_size: int
     name: str
     render_passes: dict
@@ -43,19 +45,24 @@ def create_download(local_dir_path: str, job_id: str, user_data: UserData):
 def ensure_running():
     # TODO: call api instead to check if running?
     def start_tm():
+        print("Starting Transfer Manager")
         process = spawn_detached_process([
             sys.executable,
             '-m',
             'transfer_manager.main'
-        ])
+        ], cwd=os.path.join(os.path.dirname(os.path.dirname(__file__))))
 
         with open('tm.pid', 'wt') as f:
             f.write(str(process.pid))
+
+        time.sleep(5) # give tm time to startup TODO: ping api instead?
 
     if os.path.isfile('tm.pid'):
         with open('tm.pid', 'rt') as f:
             pid = f.read()
         if len(pid) < 1 or not is_process_running(int(pid)):
-            start_tm()
+            return start_tm()
     else:
-        start_tm()
+        return start_tm()
+
+    print("Transfer Manager already running")

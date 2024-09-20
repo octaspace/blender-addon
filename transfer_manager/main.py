@@ -10,6 +10,12 @@ def main():
     from .middleware.user_data import user_data
     from .api.transfers import create_download, create_upload, get_all_transfers, get_transfer, delete_transfer, set_transfer_status
 
+    try:
+        from os import system
+        system("title Transfer Manager")
+    except:
+        pass
+
     logging.basicConfig(level=logging.INFO)
 
     app = sanic.Sanic('octa_transfer_manager')

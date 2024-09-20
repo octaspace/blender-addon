@@ -14,6 +14,7 @@ import math
 import logging
 import sanic
 import webbrowser
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ WORKER_COUNT = 4
 class JobInformation(TypedDict):
     frame_start: int
     frame_end: int
+    frame_step: int
     batch_size: int
     name: str
     render_passes: dict
@@ -175,6 +177,7 @@ class Upload(Transfer):
     async def run_job_create(self):
         frame_end = self.job_info['frame_end']
         frame_start = self.job_info['frame_start']
+        frame_step = self.job_info['frame_step']
         batch_size = self.job_info['batch_size']
 
         total_frames = frame_end - frame_start + 1
@@ -194,6 +197,7 @@ class Upload(Transfer):
                     "start": frame_start,
                     "batch_size": batch_size,
                     "end": end,
+                    "frame_step": frame_step,
                     "render_passes": self.job_info['render_passes'],
                     "render_format": render_format,
                     "version": version,
@@ -205,17 +209,24 @@ class Upload(Transfer):
                     render_format,
                     self.job_info['max_thumbnail_size'],
                     self.file_hash,
+                    frame_step,
+                    self.user_data.api_token
                 ),
             },
         )
 
         webbrowser.open_new(f"{self.user_data.farm_host}/project/{self.job_id}")
 
+    async def run_cleanup(self):
+        dir_to_delete = os.path.dirname(self.local_file_path)
+        shutil.rmtree(dir_to_delete, ignore_errors=True)
+
     async def run(self):
         try:
             await self.run_init()
             await self.run_upload()
             await self.run_job_create()
+            await self.run_cleanup()
             self.progress.set_value(1)
             self.status = TRANSFER_STATUS_SUCCESS
         except TransferException as ex:

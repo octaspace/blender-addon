@@ -95,6 +95,14 @@ def unpack_octa_farm_config(octa_farm_config: str) -> UserData:
     :param octa_farm_config:
     :return: tuple of 3 strings: farm host, api token, queue manager auth token
     """
+
+    if not octa_farm_config:
+        return {
+            "farm_host": "http://34.147.146.4/",
+            "api_token": "thisisatestkey",
+            "qm_auth_token": ""
+        }
+
     lst = json.loads(base64.b64decode(octa_farm_config).decode())
     return {
         "farm_host": lst[0],
@@ -126,16 +134,16 @@ def section(layout, properties, toggle_name, title):
     return None
 
 
-def spawn_detached_process(command):
+def spawn_detached_process(command, **kwargs):
     if sys.platform.startswith('win'):
         # Windows
         # TODO: use the other one once we want to hide it
         CREATE_NEW_CONSOLE = 0x00000010
         DETACHED_PROCESS = 0x00000008
-        return subprocess.Popen(command, creationflags=CREATE_NEW_CONSOLE, close_fds=True)
+        return subprocess.Popen(command, creationflags=CREATE_NEW_CONSOLE, close_fds=True, **kwargs)
     else:
         # Unix-like systems (Linux, macOS)
-        return subprocess.Popen(command, preexec_fn=os.setsid, close_fds=True)
+        return subprocess.Popen(command, preexec_fn=os.setsid, close_fds=True, **kwargs)
 
 
 def is_process_running(pid: int):
