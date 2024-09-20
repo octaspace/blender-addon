@@ -47,6 +47,7 @@ jobs:
           files: |
             /tmp/OctaRender.zip
             /tmp/OctaRender/blender_manifest.toml
+            /tmp/OctaRender/extensions_index.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
