@@ -34,7 +34,7 @@ def create_upload(local_file_path: str, job_information: JobInformation, user_da
     return response.json()
 
 
-def create_download(local_dir_path: str, job_id: str, user_data: UserData):
+def create_download(local_dir_path: str, job_id: str, user_data: UserData) -> str:
     response = requests.post(get_url('/download'), headers=user_data, json={
         'local_dir_path': local_dir_path,
         'job_id': job_id
@@ -55,7 +55,7 @@ def ensure_running():
         with open('tm.pid', 'wt') as f:
             f.write(str(process.pid))
 
-        time.sleep(5) # give tm time to startup TODO: ping api instead?
+        time.sleep(5)  # give tm time to startup TODO: ping api instead?
 
     if os.path.isfile('tm.pid'):
         with open('tm.pid', 'rt') as f:

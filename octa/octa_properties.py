@@ -7,7 +7,6 @@ class DownloadJobProperties:
     job_id: str
     output_path: str
     octa_farm_config: str
-    download_threads: int
 
 
 # class to be passed into thread

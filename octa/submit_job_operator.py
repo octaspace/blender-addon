@@ -1,3 +1,5 @@
+import webbrowser
+
 import bpy
 import time
 import os
@@ -282,7 +284,8 @@ class SubmitJobOperator(Operator):
                 end = job_properties.frame_end
 
             ensure_running()
-            create_upload(str(temp_zip), job_information={
+            user_data = unpack_octa_farm_config(job_properties.octa_farm_config)
+            upload_id = create_upload(str(temp_zip), job_information={
                 "batch_size": job_properties.batch_size,
                 "blend_name": os.path.basename(job_properties.temp_blend_name),
                 "blender_version": job_properties.blender_version,
@@ -294,7 +297,10 @@ class SubmitJobOperator(Operator):
                 "name": job_properties.job_name,
                 "render_engine": bpy.context.scene.render.engine,
                 "render_format": job_properties.render_format
-            }, user_data=unpack_octa_farm_config(job_properties.octa_farm_config))
+            }, user_data=user_data)
+
+            # TODO: enable this once frontend caught up
+            # webbrowser.open(f"{user_data['farm_host']}/transfers/{upload_id}")
         finally:
             self.set_progress_name("")
             self.set_progress(1)
