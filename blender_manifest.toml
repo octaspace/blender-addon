@@ -22,3 +22,6 @@ paths_exclude_pattern = [
   "/tests/",
   "/examples/"
 ]
+
+[build.generated]
+platforms = ["windows-x64", "macos-arm64", "linux-x64", "windows-arm64", "macos-x64"]
