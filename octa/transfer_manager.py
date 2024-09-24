@@ -22,7 +22,7 @@ class JobInformation(TypedDict):
     max_thumbnail_size: int
 
 
-def get_url(path):
+def get_url(path: str) -> str:
     return f"{TM_HOST}/api{path}"
 
 
@@ -42,8 +42,7 @@ def create_download(local_dir_path: str, job_id: str, user_data: UserData) -> st
     return response.json()
 
 
-def ensure_running():
-    # TODO: call api instead to check if running?
+def ensure_running() -> bool:
     def start_tm():
         print("Starting Transfer Manager")
         process = spawn_detached_process([
@@ -55,7 +54,11 @@ def ensure_running():
         with open('tm.pid', 'wt') as f:
             f.write(str(process.pid))
 
-        time.sleep(5)  # give tm time to startup TODO: ping api instead?
+        try:
+            response = requests.get(TM_HOST, timeout=5)
+            return True
+        except:
+            return False
 
     if os.path.isfile('tm.pid'):
         with open('tm.pid', 'rt') as f:
