@@ -40,7 +40,7 @@ class Transfer(ABC):
             "id": self.id,
             "type": self.type,
             "progress": self.progress.to_dict(),
-            "sub_progress": self.sub_progress.to_dict(),
+            "sub_progresses": [i.to_dict() for i in self.sub_progresses],
             "status": self.status,
             "status_text": self.status_text
         }

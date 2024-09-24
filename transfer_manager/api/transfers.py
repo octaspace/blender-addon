@@ -24,8 +24,8 @@ async def create_download(request: Request):
 
 async def get_all_transfers(request: Request):
     response = []
-    for _, item in transfer_manager.transfers.items():
-        response.append(item.to_dict())
+    for _, transfer in transfer_manager.transfers.items():
+        response.append(transfer.to_dict())
     return json(response)
 
 
@@ -55,5 +55,5 @@ async def set_transfer_status(request: Request, id: str):
     elif status == TRANSFER_STATUS_FAILURE:
         transfer.stop()
     else:
-        return json(f"unknown status {status}", status=400)
+        return json(f"unsupported status {status}", status=400)
     return json(True)
