@@ -1,17 +1,10 @@
 import bpy
-import os
-import requests
-from multiprocessing.pool import ThreadPool
 from dataclasses import dataclass
 from traceback import format_exc
 from .octa_properties import DownloadJobProperties
-from .modal_operator import ModalOperator
-from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION, unpack_octa_farm_config
-from .web_api_base import WebApiBase
+from .util import unpack_octa_farm_config
 from .transfer_manager import create_download, ensure_running
 from typing import Optional
-import time
-import threading
 
 
 @dataclass

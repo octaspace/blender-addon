@@ -1,8 +1,9 @@
 import webbrowser
-
 import bpy
 import time
 import os
+import subprocess
+import shutil
 from pathlib import Path
 from bpy.types import Operator
 from threading import Thread
@@ -11,8 +12,6 @@ from ..blender_asset_tracer.blendfile import close_all_cached
 from .octa_properties import SubmitJobProperties
 from .transfer_manager import create_upload, ensure_running
 from .util import get_all_render_passes, unpack_octa_farm_config
-import subprocess
-import shutil
 
 
 def subprocess_unpacker():

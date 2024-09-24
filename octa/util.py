@@ -1,7 +1,6 @@
 import bpy
 import base64
 import json
-import hashlib
 import sys
 import os
 import subprocess
@@ -109,14 +108,6 @@ def unpack_octa_farm_config(octa_farm_config: str) -> UserData:
         "api_token": lst[1],
         "qm_auth_token": lst[2]
     }
-
-
-def get_file_md5(path: str) -> str:
-    hasher = hashlib.md5()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
 
 
 def section(layout, properties, toggle_name, title):

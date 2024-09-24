@@ -1,7 +1,6 @@
 import requests
 import sys
 import os
-import time
 from .util import spawn_detached_process, is_process_running, UserData
 from typing import TypedDict
 
