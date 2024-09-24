@@ -51,7 +51,7 @@ class Download(Transfer):
                 tries += 1
                 try:
                     with open(work_order.local_path, 'wb') as f:
-                        with httpx.stream("GET", work_order.url, params={"action": "get"}, headers={'authentication': self.user_data.api_token}) as response:
+                        with httpx.stream("GET", work_order.url, headers={'authentication': self.user_data.api_token}) as response:
                             file_size = int(response.headers["Content-Length"])
                             sub_progress.set_of(file_size)
                             sub_progress.set_finished(response.num_bytes_downloaded)

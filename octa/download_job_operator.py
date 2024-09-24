@@ -40,9 +40,9 @@ class DownloadJobOperator(bpy.types.Operator):
             fail_validation = True
 
         farm_config = props.octa_farm_config
-        if len(farm_config) <= 0:
-            self.report({"ERROR"}, "Farm config is not set")
-            fail_validation = True
+        #if len(farm_config) <= 0:
+        #    self.report({"ERROR"}, "Farm config is not set")
+        #    fail_validation = True
         # TODO: confirm its actually valid or something
 
         properties.job_id = job_id

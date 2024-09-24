@@ -793,13 +793,6 @@ class OctaPanel(Panel):
             row = box.row()
             row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
 
-            if DownloadJobOperator.get_running():
-                row = layout.row()
-                row.progress(
-                    text=DownloadJobOperator.instance.get_progress_name(),
-                    factor=DownloadJobOperator.instance.get_progress(),
-                )
-
         suggestion_count = 0
         suggestion_count = suggestion_draw(context, box, suggestion_count, False)
 
