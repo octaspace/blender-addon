@@ -24,6 +24,7 @@ class Transfer(ABC):
         self.type = transfer_type
         self.metadata = metadata
         self.created = time.time()
+        self.finished_at = 0
 
     @abstractmethod
     def start(self):
@@ -41,10 +42,12 @@ class Transfer(ABC):
         return {
             "id": self.id,
             "type": self.type,
-            "progress": self.progress.to_dict(),
-            "sub_progresses": [i.to_dict() for i in self.sub_progresses],
+            "progress": self.progress,
+            "sub_progresses": self.sub_progresses,
             "status": self.status,
             "status_text": self.status_text,
             "metadata": self.metadata,
             "created": self.created,
+            "finished_at": self.finished_at,
+            "age": time.time() - self.created,
         }

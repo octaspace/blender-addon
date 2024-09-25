@@ -16,6 +16,7 @@ import logging
 import sanic
 import webbrowser
 import shutil
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class Upload(Transfer):
     def __init__(self, user_data: UserData, local_file_path: str, job_info: JobInformation, metadata: dict):
         super().__init__(get_next_id(), "upload", metadata)
         self.user_data = user_data
-        self.local_file_path = local_file_path
+        self.local_file_path = os.path.abspath(local_file_path)
         self.job_info = job_info
 
         self.job_id = get_next_id()
@@ -71,7 +72,7 @@ class Upload(Transfer):
             f.seek(0, os.SEEK_END)
             self.file_size = f.tell()
 
-        self.progress.set_of(self.file_size)
+        self.progress.set_total(self.file_size)
 
         self.url = f"{self.job_id}/input/package.zip"
         logger.info(f"uploading to {self.url}")
@@ -92,8 +93,8 @@ class Upload(Transfer):
             yield chunk
             chunk_len = len(chunk)
             current_bytes[0] += chunk_len
-            worker_progress.increase_finished(chunk_len)
-            self.progress.increase_finished(chunk_len)
+            worker_progress.increase_done(chunk_len)
+            self.progress.increase_done(chunk_len)
 
     async def run_upload_single(self):
         with open(self.local_file_path, 'rb') as f:
@@ -102,15 +103,19 @@ class Upload(Transfer):
         sub_progress = Progress()
         self.sub_progresses.append(sub_progress)
 
+        sub_progress.set_total(len(data))
+        self.progress.set_total(len(data))
+
         tries = 0
         while tries <= UPLOAD_RETRIES:
             tries += 1
-            current_bytes = [0]
+            current_bytes = [0]  # cant pass an int by reference, so list of a single int it is
             try:
                 await AsyncR2Worker.upload_single_part(self.user_data, self.url, self.data_generator(data, current_bytes, sub_progress))
                 break
             except:
-                self.progress.finished = 0
+                sub_progress.set_done(0)
+                self.progress.set_done(0)
                 if tries > UPLOAD_RETRIES:
                     raise
 
@@ -122,7 +127,7 @@ class Upload(Transfer):
             if work_order is None:
                 break
 
-            sub_progress.set_of(work_order.size)
+            sub_progress.set_done_total(0, work_order.size)
 
             while self.status == TRANSFER_STATUS_PAUSED:
                 await asyncio.sleep(1)
@@ -134,13 +139,14 @@ class Upload(Transfer):
             tries = 0
             while tries <= UPLOAD_RETRIES:
                 tries += 1
-                current_bytes = [0]
+                current_bytes = [0]  # cant pass an int by reference, so list of a single int it is
                 try:
                     result = await AsyncR2Worker.upload_multipart_part(self.user_data, self.url, self.upload_id, work_order.part_number, self.data_generator(data, current_bytes, sub_progress))
                     self.etags.append(result)
                     break
                 except:
-                    self.progress.decrease_finished(current_bytes[0])
+                    sub_progress.set_done(0)
+                    self.progress.decrease_done(current_bytes[0])
                     if tries > UPLOAD_RETRIES:
                         raise
 
@@ -204,6 +210,7 @@ class Upload(Transfer):
                     "version": version,
                     "render_engine": self.job_info['render_engine'],
                     "blender_version": self.job_info['blender_version'],
+                    "archive_size": self.file_size,
                 },
                 "operations": get_operations(
                     os.path.basename(self.job_info['blend_name']),
@@ -238,6 +245,8 @@ class Upload(Transfer):
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = 'unknown exception'
             logger.warning(f"upload failed: {print_exc()}")
+        finally:
+            self.finished_at = time.time()
 
     def start(self):
         if self.status == TRANSFER_STATUS_CREATED:

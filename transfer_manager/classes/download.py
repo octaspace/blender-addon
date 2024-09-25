@@ -11,6 +11,7 @@ import logging
 import sanic
 import asyncio
 import httpx
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -22,23 +23,36 @@ WORKER_COUNT = 4
 class DownloadWorkOrder:
     url: str
     local_path: str
-    download_number: int
+    rel_path: str
+    progress: Progress
+
+    def small_dict(self):
+        return {
+            "rel_path": self.rel_path,
+            "done": self.progress.done,
+            "total": self.progress.total,
+        }
 
 
 class Download(Transfer):
     def __init__(self, user_data: UserData, local_dir_path: str, job_id: str, metadata: dict):
         super().__init__(get_next_id(), "download", metadata)
         self.user_data = user_data
-        self.local_dir_path = local_dir_path
+        self.local_dir_path = os.path.abspath(local_dir_path)
         self.job_id = job_id
 
         self.retries = 3
         self.task = None
         self.lock = threading.Lock()
 
+        self.files = []
+
+        self.total_bytes_downloaded = 0
+
     async def download_worker(self, queue: asyncio.Queue):
         sub_progress = Progress()
         self.sub_progresses.append(sub_progress)
+        client = httpx.AsyncClient()
         while self.status != TRANSFER_STATUS_FAILURE:  # failure if another worker threw an exception
             work_order: DownloadWorkOrder = await queue.get()
             if work_order is None:
@@ -52,19 +66,22 @@ class Download(Transfer):
                 tries += 1
                 try:
                     with open(work_order.local_path, 'wb') as f:
-                        with httpx.stream("GET", work_order.url, headers={'authentication': self.user_data.api_token}) as response:
+                        async with client.stream("GET", work_order.url, headers={'authentication': self.user_data.api_token}) as response:
                             file_size = int(response.headers["Content-Length"])
-                            sub_progress.set_of(file_size)
-                            sub_progress.set_finished(response.num_bytes_downloaded)
-                            for chunk in response.iter_bytes():
+                            sub_progress.set_done_total(response.num_bytes_downloaded, file_size)
+                            work_order.progress.set_done_total(response.num_bytes_downloaded, file_size)
+                            self.total_bytes_downloaded += response.num_bytes_downloaded
+                            async for chunk in response.aiter_bytes():
                                 f.write(chunk)
-                                sub_progress.set_finished(response.num_bytes_downloaded)
+                                self.total_bytes_downloaded += response.num_bytes_downloaded - sub_progress.done
+                                sub_progress.set_done(response.num_bytes_downloaded)
+                                work_order.progress.set_done(response.num_bytes_downloaded)
                     break
                 except:
-                    sub_progress.set_finished(0)
+                    sub_progress.set_done(0)
                     if tries > DOWNLOAD_RETRIES:
                         raise
-            self.progress.increase_finished(1)
+            self.progress.increase_done(1)
 
     async def run_download(self):
         job = await Sarfis.get_job_details(self.user_data, self.job_id)
@@ -80,9 +97,13 @@ class Download(Transfer):
             total_frames = batch_size * total_batches
             frame_end = frame_start + total_frames - 1
 
+        def add_work_order(_url, _local_path, _rel_path):
+            work_order = DownloadWorkOrder(_url, _local_path, _rel_path, Progress())
+            self.files.append(work_order)
+            downloads.put_nowait(work_order)
+
         output_dir = os.path.join(self.local_dir_path, str(self.job_id))
         os.makedirs(output_dir, exist_ok=True)
-        download_index = 1
         if len(render_passes) > 0:
             for render_pass_name, render_pass in render_passes.items():
                 for file_name, file_ext in render_pass["files"].items():
@@ -91,8 +112,7 @@ class Download(Transfer):
                         file_full_name = f"{str(t).zfill(4)}.{file_ext}"
                         url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{file_name}/{file_full_name}"
                         local_path = os.path.join(output_dir, file_name, file_full_name)
-                        downloads.put_nowait(DownloadWorkOrder(url, local_path, download_index))
-                        download_index += 1
+                        add_work_order(url, local_path, f"{file_name}/{file_full_name}")
 
         os.makedirs(output_dir, exist_ok=True)
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(job["render_format"], "unknown")
@@ -101,10 +121,9 @@ class Download(Transfer):
             file_full_name = f"{str(t).zfill(4)}.{file_ext}"
             url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{file_full_name}"
             local_path = os.path.join(output_dir, file_full_name)
-            downloads.put_nowait(DownloadWorkOrder(url, local_path, download_index))
-            download_index += 1
+            add_work_order(url, local_path, file_full_name)
 
-        self.progress.set_of(downloads.qsize())
+        self.progress.set_total(downloads.qsize())
 
         worker_count = min(WORKER_COUNT, downloads.qsize())
         for _ in range(worker_count):
@@ -114,6 +133,7 @@ class Download(Transfer):
         await asyncio.gather(*workers)
 
         self.progress.set_value(1)
+        self.finished_at = time.time()
         logger.info("Download Complete")
 
     async def run(self):
@@ -146,4 +166,6 @@ class Download(Transfer):
         d = super().to_dict()
         d['local_dir_path'] = self.local_dir_path
         d['job_id'] = self.job_id
+        d['files'] = [i.small_dict() for i in self.files]
+        d['total_bytes_downloaded'] = self.total_bytes_downloaded
         return d

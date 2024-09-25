@@ -4,6 +4,7 @@ from ..classes.transfer_manager import transfer_manager
 from ..classes.transfer import TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_CREATED, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_SUCCESS
 from ..classes.upload import Upload
 from ..classes.download import Download
+from ..json_dumps import json_dumps
 
 
 async def create_upload(request: Request):
@@ -26,12 +27,12 @@ async def get_all_transfers(request: Request):
     response = []
     for _, transfer in transfer_manager.transfers.items():
         response.append(transfer.to_dict())
-    return json(response)
+    return json(response, dumps=json_dumps)
 
 
 async def get_transfer(request: Request, id: str):
     if id in transfer_manager.transfers:
-        return json(transfer_manager.transfers[id].to_dict())
+        return json(transfer_manager.transfers[id], dumps=json_dumps)
     return json(None, status=404)
 
 

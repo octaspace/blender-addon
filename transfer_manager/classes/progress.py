@@ -1,47 +1,45 @@
 class Progress:
     def __init__(self):
         self.value = 0
-        self.of = 0
-        self.finished = 0
 
-    def set_of(self, of):
-        self.of = of
-        if self.of > 0:
-            self.value = self.finished / self.of
+        self.done = 0
+        self.total = 0
 
-    def set_finished(self, finished):
-        self.finished = finished
-        if self.of > 0:
-            self.value = self.finished / self.of
+    def set_done(self, done):
+        self.done = done
+        if self.total > 0:
+            self.value = self.done / self.total
 
-    def increase_finished(self, by):
-        self.finished += by
-        if self.of > 0:
-            self.value = self.finished / self.of
+    def increase_done(self, by):
+        self.done += by
+        if self.total > 0:
+            self.value = self.done / self.total
 
-    def decrease_finished(self,by):
-        self.finished -= by
-        if self.of > 0:
-            self.value = self.finished / self.of
+    def decrease_done(self, by):
+        self.done -= by
+        if self.total > 0:
+            self.value = self.done / self.total
 
-    def set_of_finished(self, of, finished):
-        self.of = of
-        self.finished = finished
-        if self.of > 0:
-            self.value = self.finished / self.of
+    def set_total(self, total):
+        self.total = total
+        if self.total > 0:
+            self.value = self.done / self.total
+
+    def set_done_total(self, done, total):
+        self.done = done
+        self.total = total
+        if self.total > 0:
+            self.value = self.done / self.total
 
     def set_value(self, value):
         self.value = value
-        self.finished = int(value * self.of)
-
-    def increase_value(self, by):
-        self.value += by
-        self.finished = int(self.value * self.of)
+        self.done = int(value * self.total)
 
     def to_dict(self):
         d = {
             "value": self.value
         }
-        if self.of > 0:
-            d['finished'] = self.finished
-            d['of'] = self.of
+        if self.total > 0:
+            d['done'] = self.done
+            d['total'] = self.total
+        return d
