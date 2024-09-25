@@ -282,9 +282,13 @@ class SubmitJobOperator(Operator):
             else:
                 end = job_properties.frame_end
 
+            metadata = {
+                "file_size": os.stat(temp_zip).st_size
+            }
+
             ensure_running()
             user_data = unpack_octa_farm_config(job_properties.octa_farm_config)
-            upload_id = create_upload(str(temp_zip), job_information={
+            upload_id = create_upload(str(temp_zip), {
                 "batch_size": job_properties.batch_size,
                 "blend_name": os.path.basename(job_properties.temp_blend_name),
                 "blender_version": job_properties.blender_version,
@@ -296,7 +300,7 @@ class SubmitJobOperator(Operator):
                 "name": job_properties.job_name,
                 "render_engine": bpy.context.scene.render.engine,
                 "render_format": job_properties.render_format
-            }, user_data=user_data)
+            }, user_data, metadata)
 
             # TODO: enable this once frontend caught up
             # webbrowser.open(f"{user_data['farm_host']}/transfers/{upload_id}")

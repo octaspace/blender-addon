@@ -40,7 +40,7 @@ class DownloadJobOperator(bpy.types.Operator):
             fail_validation = True
 
         farm_config = props.octa_farm_config
-        #if len(farm_config) <= 0:
+        # if len(farm_config) <= 0:
         #    self.report({"ERROR"}, "Farm config is not set")
         #    fail_validation = True
         # TODO: confirm its actually valid or something
@@ -66,8 +66,10 @@ class DownloadJobOperator(bpy.types.Operator):
         output_path = properties.output_path
         user_data = unpack_octa_farm_config(properties.octa_farm_config)
 
+        metadata = {}
+
         ensure_running()
-        download_id = create_download(output_path, job_id, user_data)
+        download_id = create_download(output_path, job_id, user_data, metadata)
 
         # TODO: enable this once frontend caught up
         # webbrowser.open(f"{user_data['farm_host']}/transfers/{download_id}")

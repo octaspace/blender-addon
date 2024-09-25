@@ -8,7 +8,7 @@ from ..classes.download import Download
 
 async def create_upload(request: Request):
     args = request.json
-    upload = Upload(request.ctx.user_data, args['local_file_path'], args['job_information'])
+    upload = Upload(request.ctx.user_data, args['local_file_path'], args['job_information'], args['metadata'])
     transfer_manager.add(upload)
     upload.start()
     return json(upload.id)
@@ -16,7 +16,7 @@ async def create_upload(request: Request):
 
 async def create_download(request: Request):
     args = request.json
-    download = Download(request.ctx.user_data, args['local_dir_path'], args['job_id'])
+    download = Download(request.ctx.user_data, args['local_dir_path'], args['job_id'], args['metadata'])
     transfer_manager.add(download)
     download.start()
     return json(download.id)

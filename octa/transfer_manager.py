@@ -25,18 +25,20 @@ def get_url(path: str) -> str:
     return f"{TM_HOST}/api{path}"
 
 
-def create_upload(local_file_path: str, job_information: JobInformation, user_data: UserData) -> str:
+def create_upload(local_file_path: str, job_information: JobInformation, user_data: UserData, metadata: dict) -> str:
     response = requests.post(get_url('/upload'), headers=user_data, json={
         'local_file_path': local_file_path,
-        'job_information': job_information
+        'job_information': job_information,
+        'metadata': metadata,
     })
     return response.json()
 
 
-def create_download(local_dir_path: str, job_id: str, user_data: UserData) -> str:
+def create_download(local_dir_path: str, job_id: str, user_data: UserData, metadata: dict) -> str:
     response = requests.post(get_url('/download'), headers=user_data, json={
         'local_dir_path': local_dir_path,
-        'job_id': job_id
+        'job_id': job_id,
+        'metadata': metadata,
     })
     return response.json()
 

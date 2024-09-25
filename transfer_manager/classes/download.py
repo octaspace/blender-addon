@@ -4,6 +4,7 @@ from ..util import IMAGE_TYPE_TO_EXTENSION, get_next_id
 from dataclasses import dataclass
 from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
 from .progress import Progress
+from .user_data import UserData
 import os
 import threading
 import logging
@@ -25,8 +26,8 @@ class DownloadWorkOrder:
 
 
 class Download(Transfer):
-    def __init__(self, user_data, local_dir_path, job_id):
-        super().__init__(get_next_id(), "download")
+    def __init__(self, user_data: UserData, local_dir_path: str, job_id: str, metadata: dict):
+        super().__init__(get_next_id(), "download", metadata)
         self.user_data = user_data
         self.local_dir_path = local_dir_path
         self.job_id = job_id

@@ -8,6 +8,7 @@ from ..version import version
 from ..apis.r2_worker import AsyncR2Worker
 from .progress import Progress
 from traceback import print_exc
+from dataclasses import dataclass
 import asyncio
 import os
 import math
@@ -38,16 +39,16 @@ class JobInformation(TypedDict):
     max_thumbnail_size: int
 
 
+@dataclass
 class UploadWorkOrder:
-    def __init__(self, offset, size, part_number):
-        self.offset = offset
-        self.size = size
-        self.part_number = part_number
+    offset: int
+    size: int
+    part_number: int
 
 
 class Upload(Transfer):
-    def __init__(self, user_data: UserData, local_file_path: str, job_info: JobInformation):
-        super().__init__(get_next_id(), "upload")
+    def __init__(self, user_data: UserData, local_file_path: str, job_info: JobInformation, metadata: dict):
+        super().__init__(get_next_id(), "upload", metadata)
         self.user_data = user_data
         self.local_file_path = local_file_path
         self.job_info = job_info
@@ -257,4 +258,5 @@ class Upload(Transfer):
         d = super().to_dict()
         d['local_file_path'] = self.local_file_path
         d['job_id'] = self.job_id
+        d['job_info'] = self.job_info
         return d
