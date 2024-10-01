@@ -29,6 +29,11 @@ class RenderPass(TypedDict):
 
 def get_addon_name():
     current_package = __package__
+    if current_package.startswith("bl_ext."):
+        parts = current_package.split(".")
+        root_package = ".".join(parts[:3])
+        return root_package
+
     root_package = (
         current_package.split(".")[0] if "." in current_package else current_package
     )
