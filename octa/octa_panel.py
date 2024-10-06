@@ -663,6 +663,7 @@ class OctaPanel(Panel):
         box.use_property_split = True
         box.use_property_decorate = False
         box.prop(properties, "job_name")
+        box.prop(properties, "octa_farm_config")
         box.prop(properties, "render_format")
 
         box = layout.box()
@@ -682,28 +683,43 @@ class OctaPanel(Panel):
         col = box.column(align=True)
 
         if properties.render_type == "ANIMATION":
-            col.prop(
+            fr_enabled = not properties.match_scene
+
+            row = col.row()
+            row.prop(
                 scene if properties.match_scene else properties,
                 "frame_start",
                 text="Frame Start",
             )
-            col.prop(
+            row.enabled = fr_enabled
+            row = col.row()
+            row.prop(
                 scene if properties.match_scene else properties, "frame_end", text="End"
             )
 
-            row = box.row()
-            row.prop(properties, "batch_size")
+            row.enabled = fr_enabled
+            row = col.row()
+            row.prop(
+                properties,
+                "frame_step",
+                text="Step",
+            )
+
+            row.enabled = True
         else:
             col.prop(
                 scene if properties.match_scene else properties,
                 "frame_current",
                 text="Frame",
             )
-
-        if properties.match_scene:
-            col.enabled = False
-        else:
-            col.enabled = True
+        if properties.render_type == "ANIMATION":
+            row = box.row()
+            if properties.frame_step == 1:
+                row.prop(properties, "batch_size")
+            else:
+                row.prop(properties, "batch_size_tmp")
+                row.enabled = False
+                row.prop(properties, "batch_size_warning", text="", icon="INFO")
 
         icons = IconManager().icons
         col = box.column(align=True)
@@ -776,13 +792,6 @@ class OctaPanel(Panel):
 
             row = box.row()
             row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
-
-            if DownloadJobOperator.get_running():
-                row = layout.row()
-                row.progress(
-                    text=DownloadJobOperator.instance.get_progress_name(),
-                    factor=DownloadJobOperator.instance.get_progress(),
-                )
 
         suggestion_count = 0
         suggestion_count = suggestion_draw(context, box, suggestion_count, False)
