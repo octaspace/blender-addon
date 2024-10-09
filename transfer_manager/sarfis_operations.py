@@ -129,10 +129,30 @@ def r2_upload(api_token):
             "{job_id}/output/",
             "--api-token",
             api_token,  # TODO: use node var
-            #"--remove-files",
+            # "--remove-files",
         ],
     }
     return node
+
+
+def stopwatch(action, name):
+    return {
+        "operation": "stopwatch",
+        "arguments": {
+            "action": action,
+            "name": name,
+        },
+    }
+
+
+def octa_analytics(frame, duration):
+    return {
+        "operation": "octa_analysis",
+        "arguments": {
+            "frame": frame,
+            "duration": duration
+        }
+    }
 
 
 def print_input_folder_func(folder):
@@ -165,6 +185,7 @@ def print_input_folder():
 
 def get_operations(blend_file_name: str, render_format: str, max_thumbnail_size: int, zip_hash: str, frame_step: int, api_token: str):
     return [
+        stopwatch("start", "frame"),
         download_unzip(zip_hash, api_token),
         print_input_folder(),
         blender(
@@ -174,4 +195,6 @@ def get_operations(blend_file_name: str, render_format: str, max_thumbnail_size:
         ),
         thumbnails(max_size=max_thumbnail_size),
         r2_upload(api_token),
+        stopwatch("stop", "frame"),
+        octa_analytics("{node_task}", "{stopwatch.frame}")
     ]
