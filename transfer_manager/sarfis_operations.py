@@ -147,7 +147,7 @@ def stopwatch(action, name):
 
 def octa_analytics(frame, duration):
     return {
-        "operation": "octa_analysis",
+        "operation": "octa_analytics",
         "arguments": {
             "frame": frame,
             "duration": duration
@@ -196,5 +196,5 @@ def get_operations(blend_file_name: str, render_format: str, max_thumbnail_size:
         thumbnails(max_size=max_thumbnail_size),
         r2_upload(api_token),
         stopwatch("stop", "frame"),
-        octa_analytics("{node_task}", "{stopwatch.frame}")
+        octa_analytics("{node_task}", "{stopwatch_frame}")
     ]
