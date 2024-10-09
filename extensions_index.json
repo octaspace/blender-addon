@@ -1,0 +1,32 @@
+{
+    "version": "v1",
+    "blocklist": [],
+    "data": [
+      {
+        "schema_version": "1.0.0",
+        "id": "octa_render_extension",
+        "name": "Octa Render",
+        "tagline": "Extension for the Octa Render Farm",
+        "version": "1.0.0",
+        "type": "add-on",
+        "maintainer": "Octa Team <discord.com/invite/octaspace>",
+        "license": [
+          "SPDX:GPL-3.0-or-later"
+        ],
+        "blender_version_min": "4.2.0",
+        "website": "https://octa.space/",
+        "permissions": {
+          "network": "Uploading and downloading files to/from the render farm",
+          "files": "Access to read and write render files"
+        },
+        "tags": [
+          "Rendering",
+          "Cloud",
+          "Farm"
+        ],
+        "archive_url": "./octa-render.zip",
+        "archive_size": 19426814,
+        "archive_hash": "sha256:abc83915b1c6610dd47b121b9cbe9c030b2f1be3269f30662af8d696fa566fd7"
+      }
+    ]
+  }

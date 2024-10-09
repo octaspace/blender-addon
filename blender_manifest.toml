@@ -1,0 +1,27 @@
+schema_version = "1.0.0"
+id = "octa_render_extension"
+version = "1.0.0"
+name = "Octa Render"
+tagline = "Extension for the Octa Render Farm"
+maintainer = "Octa Team <discord.com/invite/octaspace>"
+type = "add-on"
+website = "https://octa.space/"
+tags = ["Rendering", "Cloud", "Farm"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+network = "Uploading and downloading files to/from the render farm"
+files = "Access to read and write render files"
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/*.zip",
+  "/tests/",
+  "/examples/"
+]
+
+[build.generated]
+platforms = ["windows-x64", "macos-arm64", "linux-x64", "windows-arm64", "macos-x64"]

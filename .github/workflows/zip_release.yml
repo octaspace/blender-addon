@@ -1,0 +1,44 @@
+name: Release Zip
+
+on:
+  release:
+    types: 
+      - published
+
+jobs:
+  zip-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Install Python
+      - name: Install Python
+        run: |
+          sudo apt update && sudo apt install -y python3 python3-pip
+          pip3 install toml
+
+      # Step 3: Move files to a folder named OctaRender
+      - name: Prepare folder structure
+        run: |
+          mkdir /tmp/OctaRender
+          cp -r . /tmp/OctaRender
+
+      #Step 4: Update Manifest
+      - name: Update Manifest
+        run: |
+          python3 manifest.py --version ${{ github.ref }}
+
+      # Step 5: Release
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            /tmp/OctaRender.zip
+            /tmp/OctaRender/blender_manifest.toml
+            /tmp/OctaRender/extensions_index.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

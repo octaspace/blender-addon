@@ -1,16 +1,10 @@
 import bpy
-import os
-import requests
-from multiprocessing.pool import ThreadPool
 from dataclasses import dataclass
 from traceback import format_exc
 from .octa_properties import DownloadJobProperties
-from .web_ui import WebUi
-from .modal_operator import ModalOperator
-from .util import get_all_render_passes, IMAGE_TYPE_TO_EXTENSION, unpack_octa_farm_config
-from .web_api_base import WebApiBase
-from .sarfis import Sarfis
-import time
+from .util import unpack_octa_farm_config
+from .transfer_manager import create_download, ensure_running
+from typing import Optional
 
 
 @dataclass
@@ -20,7 +14,7 @@ class Download:
     index: int
 
 
-class DownloadJobOperator(ModalOperator):
+class DownloadJobOperator(bpy.types.Operator):
     bl_idname = "exporter.download_job"
     bl_label = "Download Job"
     bl_description = "Download Job"
@@ -29,107 +23,55 @@ class DownloadJobOperator(ModalOperator):
     def __init__(self):
         super().__init__()
         DownloadJobOperator.instance = self
-        self.download_count = 0
 
-    def validate_properties(self, context):
+    def validate_properties(self, context) -> Optional[DownloadJobProperties]:
         properties = DownloadJobProperties()
         fail_validation = False
 
         props = context.scene.octa_properties
         job_id = props.dl_job_id
         if len(job_id) <= 0:
-            self.report({'ERROR'}, 'Job id is not set')
+            self.report({"ERROR"}, "Job id is not set")
             fail_validation = True
 
-        properties.job_id = int(job_id)
-
-        octa_farm_config = unpack_octa_farm_config(props.octa_farm_config)
-        octa_host, farm_cookie, qm_token = octa_farm_config
-
-        octa_host = octa_host.rstrip('/')
-        WebUi.set_config(octa_host, farm_cookie)
-        try:
-            # TODO: use this in future once hooked up
-            WebUi.get_version()
-            # TODO: get supported plugin version instead and fail if not supported anymore
-            response = requests.get(octa_host, timeout=15)
-        except:
-            self.report({'ERROR'}, 'Octa host is not reachable')
+        output_path = props.dl_output_path
+        if len(output_path) <= 0:
+            self.report({"ERROR"}, "Output path is not set")
             fail_validation = True
-        properties.octa_farm_config = octa_farm_config
 
-        properties.output_path = props.dl_output_path
-        properties.download_threads = props.dl_threads
+        farm_config = props.octa_farm_config
+        # if len(farm_config) <= 0:
+        #    self.report({"ERROR"}, "Farm config is not set")
+        #    fail_validation = True
+        # TODO: confirm its actually valid or something
+
+        properties.job_id = job_id
+        properties.output_path = output_path
+        properties.octa_farm_config = farm_config
 
         if fail_validation:
             return None
 
         return properties
 
-    def download_task(self, download):
+    def execute(self, context):
         try:
-            self.set_progress_name(f"Downloading file {download.index}/{self.download_count}")
-            dl_start = int(time.time() * 1000)
-            response = WebApiBase.request_with_retries('GET', download.url)
-            dl_end = int(time.time() * 1000)
-
-            save_start = int(time.time() * 1000)
-            with open(download.local_path, 'wb') as f:
-                f.write(response.content)
-            save_end = int(time.time() * 1000)
-
-            self.set_progress(download.index / self.download_count)
-            print(f"Downloaded {download.url} to {download.local_path}\nDL Time {dl_end - dl_start}ms | Save Time {save_end - save_start}ms | Size {len(response.content) / 1000 / 1000:.2f}MB")
+            properties: DownloadJobProperties = self.validate_properties(context)
         except:
-            print(f"Failed to download {download.url}: {format_exc()}")
-
-    def run(self, properties: DownloadJobProperties):
-        self.set_progress_name("Downloading frames")
-        self.set_progress(0)
-
+            print(format_exc())
+            return {"CANCELLED"}
+        if properties is None:
+            return {"CANCELLED"}
         job_id = properties.job_id
-        octa_host, farm_cookie, qm_token = properties.octa_farm_config
-        job = Sarfis.get_job_details(octa_host, qm_token, job_id)  # requests.get(f'{octa_host}/qm/api/job_details?job_id={job_id}').json().get('body')
-        render_passes = job.get('render_passes', None)
-        if render_passes is None:
-            render_passes = get_all_render_passes()  # get from file if not present on job and hope for the best
+        output_path = properties.output_path
+        user_data = unpack_octa_farm_config(properties.octa_farm_config)
 
-        downloads = []
+        metadata = {}
 
-        frame_start = job['start']
-        frame_end = job['end']
-        batch_size = job.get('batch_size', None)
-        if batch_size is not None and batch_size > 1:
-            total_batches = frame_end - frame_start + 1
-            total_frames = batch_size * total_batches
-            frame_end = frame_start + total_frames - 1
+        ensure_running()
+        download_id = create_download(output_path, job_id, user_data, metadata)
 
-        output_dir = os.path.join(properties.output_path, str(job_id))
-        os.makedirs(output_dir, exist_ok=True)
-        download_index = 1
-        if len(render_passes) > 0:
-            for render_pass_name, render_pass in render_passes.items():
-                for file_name, file_ext in render_pass["files"].items():
-                    os.makedirs(os.path.join(output_dir, file_name), exist_ok=True)
-                    for t in range(frame_start, frame_end + 1):
-                        file_full_name = f'{str(t).zfill(4)}.{file_ext}'
-                        url = f'https://render-data.octa.computer/{job_id}/output/{file_name}/{file_full_name}'
-                        local_path = os.path.join(output_dir, file_name, file_full_name)
-                        downloads.append(Download(url, local_path, download_index))
-                        download_index += 1
+        # TODO: enable this once frontend caught up
+        # webbrowser.open(f"{user_data['farm_host']}/transfers/{download_id}")
 
-        os.makedirs(output_dir, exist_ok=True)
-        file_ext = IMAGE_TYPE_TO_EXTENSION.get(job['render_format'], 'unknown')
-
-        for t in range(frame_start, frame_end + 1):
-            file_full_name = f'{str(t).zfill(4)}.{file_ext}'
-            url = f'https://render-data.octa.computer/{job_id}/output/{file_full_name}'
-            local_path = os.path.join(output_dir, file_full_name)
-            downloads.append(Download(url, local_path, download_index))
-            download_index += 1
-
-        self.download_count = len(downloads)
-
-        pool = ThreadPool(properties.download_threads)
-        pool.map(self.download_task, downloads)
-        pool.close()
+        return {'FINISHED'}
