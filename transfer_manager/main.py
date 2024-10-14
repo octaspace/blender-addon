@@ -5,7 +5,12 @@ async def index(request):
 
 def main():
     import os
+    import sys
     import tempfile
+
+    sys.stdout = open(os.path.join(tempfile.gettempdir(), "tm.stdout"), 'w')
+    sys.stdout = open(os.path.join(tempfile.gettempdir(), "tm.stderr"), 'w')
+
     import logging.handlers
     logging.basicConfig(
         level=logging.INFO,
