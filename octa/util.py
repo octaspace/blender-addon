@@ -133,10 +133,11 @@ def section(layout, properties, toggle_name, title):
 def spawn_detached_process(command, **kwargs):
     if sys.platform.startswith('win'):
         # Windows
-        # TODO: use the other one once we want to hide it
+        # create new console
         CREATE_NEW_CONSOLE = 0x00000010
+        # hide console
         DETACHED_PROCESS = 0x00000008
-        return subprocess.Popen(command, creationflags=CREATE_NEW_CONSOLE, close_fds=True, **kwargs)
+        return subprocess.Popen(command, creationflags=DETACHED_PROCESS, close_fds=True, **kwargs)
     else:
         # Unix-like systems (Linux, macOS)
         return subprocess.Popen(command, preexec_fn=os.setsid, close_fds=True, **kwargs)
