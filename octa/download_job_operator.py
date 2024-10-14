@@ -1,4 +1,5 @@
 import bpy
+import time
 from dataclasses import dataclass
 from traceback import format_exc
 from .octa_properties import DownloadJobProperties
@@ -68,7 +69,9 @@ class DownloadJobOperator(bpy.types.Operator):
 
         metadata = {}
 
-        ensure_running()
+        while not ensure_running():
+            time.sleep(3)
+            print("waiting for transfer manager")
         download_id = create_download(output_path, job_id, user_data, metadata)
 
         # TODO: enable this once frontend caught up

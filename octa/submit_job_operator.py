@@ -286,7 +286,9 @@ class SubmitJobOperator(Operator):
                 "file_size": os.stat(temp_zip).st_size
             }
 
-            ensure_running()
+            while not ensure_running():
+                time.sleep(3)
+                print("waiting for transfer manager")
             user_data = unpack_octa_farm_config(job_properties.octa_farm_config)
             upload_id = create_upload(str(temp_zip), {
                 "batch_size": job_properties.batch_size,
