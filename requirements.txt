@@ -1,4 +1,3 @@
 aiofiles
 sanic==24.6.0
 httpx==0.27.2
-sanic-ext==23.12.0

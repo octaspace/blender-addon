@@ -308,9 +308,3 @@ class SubmitJobOperator(Operator):
             self.set_progress_name("")
             self.set_progress(1)
             self._set_running(False)
-
-        try:
-            if not self.debug_zip:
-                shutil.rmtree(job_properties.temp_work_folder)
-        except:
-            pass

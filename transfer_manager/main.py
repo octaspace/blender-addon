@@ -6,8 +6,8 @@ async def index(request):
 def main():
     import sanic
     import logging
-    from sanic_ext import Extend
     from .middleware.user_data import user_data
+    from .middleware.cors import cors
     from .api.transfers import create_download, create_upload, get_all_transfers, get_transfer, delete_transfer, set_transfer_status
 
     try:
@@ -19,8 +19,8 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     app = sanic.Sanic('octa_transfer_manager')
-    app.config.CORS_ORIGINS = "*"  # comma seperated list
-    Extend(app)
+
+    app.middleware(cors, 'response')
 
     bp_api = sanic.Blueprint("api", "api")
     bp_api.middleware(user_data, 'request')
