@@ -4,8 +4,16 @@ async def index(request):
 
 
 def main():
+    import os
+    import tempfile
+    import logging.handlers
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[
+            logging.handlers.RotatingFileHandler(os.path.join(tempfile.gettempdir(), "tm.log"), maxBytes=1024 * 1024 * 20, backupCount=2)
+        ])
     import sanic
-    import logging
+
     from .middleware.user_data import user_data
     from .middleware.cors import cors
     from .api.transfers import create_download, create_upload, get_all_transfers, get_transfer, delete_transfer, set_transfer_status
@@ -15,8 +23,6 @@ def main():
         system("title Transfer Manager")
     except:
         pass
-
-    logging.basicConfig(level=logging.INFO)
 
     app = sanic.Sanic('octa_transfer_manager')
 
