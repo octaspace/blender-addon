@@ -65,6 +65,8 @@ def ensure_running() -> bool:
             'transfer_manager.main'
         ], cwd=os.path.join(os.path.dirname(os.path.dirname(__file__))))
 
+        print(f"detached process with pid {process.pid}")
+
         with open(get_tm_pid_path(), 'wt') as f:
             f.write(str(process.pid))
 

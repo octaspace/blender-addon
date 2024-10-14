@@ -131,6 +131,7 @@ def section(layout, properties, toggle_name, title):
 
 
 def spawn_detached_process(command, **kwargs):
+    print(f"spawning detached process {command} {kwargs}")
     if sys.platform.startswith('win'):
         # Windows
         # create new console
