@@ -2,7 +2,7 @@ from typing import TypedDict
 
 from httpx import Response
 
-R2_WORKER_ENDPOINT = "https://r2-worker.artem-teslenko.workers.dev"
+R2_WORKER_ENDPOINT = "https://storage.octa.computer"
 
 
 def sanitize_path(path: str):
