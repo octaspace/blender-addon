@@ -129,7 +129,7 @@ def r2_upload(api_token):
             "{job_id}/output/",
             "--api-token",
             api_token,  # TODO: use node var
-            # "--remove-files",
+            "--remove-files",
         ],
     }
     return node
