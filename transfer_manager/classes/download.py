@@ -65,8 +65,10 @@ class Download(Transfer):
             while tries <= DOWNLOAD_RETRIES:
                 tries += 1
                 try:
-                    with open(work_order.local_path, 'wb') as f:
-                        async with client.stream("GET", work_order.url, headers={'authentication': self.user_data.api_token}) as response:
+                    async with client.stream("GET", work_order.url, headers={'authentication': self.user_data.api_token}) as response:
+                        if response.status_code == 404:
+                            raise Exception(f"{work_order.rel_path} not found")
+                        with open(work_order.local_path, 'wb') as f:
                             file_size = int(response.headers["Content-Length"])
                             sub_progress.set_done_total(response.num_bytes_downloaded, file_size)
                             work_order.progress.set_done_total(response.num_bytes_downloaded, file_size)
