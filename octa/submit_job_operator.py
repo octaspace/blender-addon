@@ -273,15 +273,6 @@ class SubmitJobOperator(Operator):
             except PermissionError:
                 pass  # cant delete it cause the asset packer somehow still has an open handle on it. too bad
 
-            total_frames = job_properties.frame_end - job_properties.frame_start + 1
-            if job_properties.batch_size != 1:
-                end = job_properties.frame_start + (total_frames // job_properties.batch_size) - 1
-            elif job_properties.frame_step > 1:
-                end = (job_properties.frame_end - job_properties.frame_start) // job_properties.frame_step
-                end += job_properties.frame_start
-            else:
-                end = job_properties.frame_end
-
             metadata = {
                 "file_size": os.stat(temp_zip).st_size
             }
@@ -295,7 +286,7 @@ class SubmitJobOperator(Operator):
                 "blend_name": os.path.basename(job_properties.temp_blend_name),
                 "blender_version": job_properties.blender_version,
                 "render_passes": get_all_render_passes(),
-                "frame_end": end,
+                "frame_end": job_properties.frame_end,
                 "frame_start": job_properties.frame_start,
                 "frame_step": job_properties.frame_step,
                 "max_thumbnail_size": job_properties.max_thumbnail_size,

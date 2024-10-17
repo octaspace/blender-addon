@@ -188,8 +188,12 @@ class Upload(Transfer):
         batch_size = self.job_info['batch_size']
 
         total_frames = frame_end - frame_start + 1
+
         if batch_size != 1:
             end = frame_start + (total_frames // batch_size) - 1
+        elif frame_step > 1:
+            end = (frame_end - frame_start) // frame_step
+            end += frame_start
         else:
             end = frame_end
 
