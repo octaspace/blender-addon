@@ -1,7 +1,13 @@
 from sanic import Request
-from sanic.response import json
+from sanic.response import json, empty
 from ..classes.transfer_manager import transfer_manager
-from ..classes.transfer import TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_CREATED, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_SUCCESS
+from ..classes.transfer import (
+    TRANSFER_STATUS_PAUSED,
+    TRANSFER_STATUS_CREATED,
+    TRANSFER_STATUS_FAILURE,
+    TRANSFER_STATUS_RUNNING,
+    TRANSFER_STATUS_SUCCESS,
+)
 from ..classes.upload import Upload
 from ..classes.download import Download
 from ..json_dumps import json_dumps
@@ -9,17 +15,27 @@ from ..json_dumps import json_dumps
 
 async def create_upload(request: Request):
     args = request.json
-    upload = Upload(request.ctx.user_data, args['local_file_path'], args['job_information'], args['metadata'])
+    upload = Upload(
+        request.ctx.user_data,
+        args["local_file_path"],
+        args["job_information"],
+        args["metadata"],
+    )
     transfer_manager.add(upload)
     upload.start()
     return json(upload.id)
 
 
 async def create_download(request: Request):
+    print("CREATE DOWNLOAD")
+
     args = request.json
-    download = Download(request.ctx.user_data, args['local_dir_path'], args['job_id'], args['metadata'])
+    download = Download(
+        request.ctx.user_data, args["local_dir_path"], args["job_id"], args["metadata"]
+    )
     transfer_manager.add(download)
     download.start()
+    print("DOWNLOAD STARTED")
     return json(download.id)
 
 
@@ -45,7 +61,7 @@ async def delete_transfer(request: Request, id: str):
 
 async def set_transfer_status(request: Request, id: str):
     args = request.json
-    status = args['status']
+    status = args["status"]
     transfer = transfer_manager.get(id)
     if transfer is None:
         return json(False, status=404)
