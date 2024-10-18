@@ -6,7 +6,6 @@ from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
 from .progress import Progress
 from .user_data import UserData
 import os
-import threading
 import logging
 import sanic
 import asyncio
@@ -43,9 +42,9 @@ class Download(Transfer):
 
         self.retries = 3
         self.task = None
-        self.lock = threading.Lock()
-
         self.files = []
+        self.configured_worker_count = WORKER_COUNT
+        self.worker_count = 0
 
         self.total_bytes_downloaded = 0
 
@@ -127,11 +126,11 @@ class Download(Transfer):
 
         self.progress.set_total(downloads.qsize())
 
-        worker_count = min(WORKER_COUNT, downloads.qsize())
-        for _ in range(worker_count):
+        self.worker_count = min(self.configured_worker_count, downloads.qsize())
+        for _ in range(self.worker_count):
             downloads.put_nowait(None)  # one none per worker
 
-        workers = [asyncio.create_task(self.download_worker(downloads)) for _ in range(worker_count)]
+        workers = [asyncio.create_task(self.download_worker(downloads)) for _ in range(self.worker_count)]
         await asyncio.gather(*workers)
 
         self.progress.set_value(1)
@@ -170,4 +169,6 @@ class Download(Transfer):
         d['job_id'] = self.job_id
         d['files'] = [i.small_dict() for i in self.files]
         d['total_bytes_downloaded'] = self.total_bytes_downloaded
+        d['worker_count'] = self.worker_count
+        d['configured_worker_count'] = self.configured_worker_count
         return d

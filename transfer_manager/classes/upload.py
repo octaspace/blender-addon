@@ -63,6 +63,8 @@ class Upload(Transfer):
         self.upload_id = ""
         self.url = ""
         self.etags = []
+        self.worker_count = 0
+        self.configured_worker_count = WORKER_COUNT
 
     async def run_init(self):
         self.file_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
@@ -99,6 +101,8 @@ class Upload(Transfer):
     async def run_upload_single(self):
         with open(self.local_file_path, 'rb') as f:
             data = f.read()
+
+        self.worker_count = 1
 
         sub_progress = Progress()
         self.sub_progresses.append(sub_progress)
@@ -152,7 +156,7 @@ class Upload(Transfer):
 
     async def run_upload_multi(self):
         part_count = math.ceil(self.file_size / UPLOAD_PART_SIZE)
-        worker_count = min(WORKER_COUNT, part_count)
+        self.worker_count = min(self.configured_worker_count, part_count)
         logger.info(f"part count: {part_count}, file_size: {self.file_size}, part_size: {UPLOAD_PART_SIZE}")
 
         data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)
@@ -166,13 +170,13 @@ class Upload(Transfer):
         last_part_offset = (part_count - 1) * UPLOAD_PART_SIZE
         queue.put_nowait(UploadWorkOrder(last_part_offset, self.file_size - last_part_offset, part_count))
 
-        for _ in range(worker_count):
+        for _ in range(self.worker_count):
             queue.put_nowait(None)  # one none per worker
 
         try:
             with open(self.local_file_path, 'rb') as f:
                 self.file = f
-                workers = [asyncio.create_task(self.upload_worker(queue)) for _ in range(worker_count)]
+                workers = [asyncio.create_task(self.upload_worker(queue)) for _ in range(self.worker_count)]
                 await asyncio.gather(*workers)
             await AsyncR2Worker.complete_multipart_upload(self.user_data, self.url, self.upload_id, self.etags)
         except:
@@ -272,4 +276,6 @@ class Upload(Transfer):
         d['local_file_path'] = self.local_file_path
         d['job_id'] = self.job_id
         d['job_info'] = self.job_info
+        d['worker_count'] = self.worker_count
+        d['configured_worker_count'] = self.configured_worker_count
         return d
