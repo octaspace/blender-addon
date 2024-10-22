@@ -26,21 +26,36 @@ def get_url(path: str) -> str:
     return f"{TM_HOST}/api{path}"
 
 
-def create_upload(local_file_path: str, job_information: JobInformation, user_data: UserData, metadata: dict) -> str:
-    response = requests.post(get_url('/upload'), headers=user_data, json={
-        'local_file_path': local_file_path,
-        'job_information': job_information,
-        'metadata': metadata,
-    })
+def create_upload(
+    local_file_path: str,
+    job_information: JobInformation,
+    user_data: UserData,
+    metadata: dict,
+) -> str:
+    response = requests.post(
+        get_url("/upload"),
+        headers=user_data,
+        json={
+            "local_file_path": local_file_path,
+            "job_information": job_information,
+            "metadata": metadata,
+        },
+    )
     return response.json()
 
 
-def create_download(local_dir_path: str, job_id: str, user_data: UserData, metadata: dict) -> str:
-    response = requests.post(get_url('/download'), headers=user_data, json={
-        'local_dir_path': local_dir_path,
-        'job_id': job_id,
-        'metadata': metadata,
-    })
+def create_download(
+    local_dir_path: str, job_id: str, user_data: UserData, metadata: dict
+) -> str:
+    response = requests.post(
+        get_url("/download"),
+        headers=user_data,
+        json={
+            "local_dir_path": local_dir_path,
+            "job_id": job_id,
+            "metadata": metadata,
+        },
+    )
     return response.json()
 
 
@@ -59,21 +74,20 @@ def get_tm_pid_path():
 def ensure_running() -> bool:
     def start_tm():
         print("Starting Transfer Manager")
-        process = spawn_detached_process([
-            sys.executable,
-            '-m',
-            'transfer_manager.main'
-        ], cwd=os.path.join(os.path.dirname(os.path.dirname(__file__))))
+        process = spawn_detached_process(
+            [sys.executable, "-m", "transfer_manager.main"],
+            cwd=os.path.join(os.path.dirname(os.path.dirname(__file__))),
+        )
 
         print(f"detached process with pid {process.pid}")
 
-        with open(get_tm_pid_path(), 'wt') as f:
+        with open(get_tm_pid_path(), "wt") as f:
             f.write(str(process.pid))
 
         return is_reachable()
 
     if os.path.isfile(get_tm_pid_path()):
-        with open(get_tm_pid_path(), 'rt') as f:
+        with open(get_tm_pid_path(), "rt") as f:
             pid = f.read()
         if len(pid) < 1 or not is_process_running(int(pid)):
             # pid file, but process not running
