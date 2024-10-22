@@ -1,3 +1,4 @@
 aiofiles
 sanic==24.6.0
 httpx==0.27.2
+filedialpy

@@ -11,6 +11,7 @@ from ..classes.transfer import (
 from ..classes.upload import Upload
 from ..classes.download import Download
 from ..json_dumps import json_dumps
+import filedialpy
 
 
 async def create_upload(request: Request):
@@ -27,12 +28,11 @@ async def create_upload(request: Request):
 
 
 async def create_download(request: Request):
-    print("CREATE DOWNLOAD")
+    f = filedialpy.openDir()
+    print("Download Path: ", f)
 
     args = request.json
-    download = Download(
-        request.ctx.user_data, args["local_dir_path"], args["job_id"], args["metadata"]
-    )
+    download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])
     transfer_manager.add(download)
     download.start()
     print("DOWNLOAD STARTED")
