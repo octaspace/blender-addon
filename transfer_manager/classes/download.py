@@ -107,13 +107,13 @@ class Download(Transfer):
         os.makedirs(output_dir, exist_ok=True)
         if len(render_passes) > 0:
             for render_pass_name, render_pass in render_passes.items():
-                for file_name, file_ext in render_pass["files"].items():
-                    os.makedirs(os.path.join(output_dir, file_name), exist_ok=True)
+                for render_pass_output_name, file_ext in render_pass["files"].items():
+                    os.makedirs(os.path.join(output_dir, render_pass_output_name), exist_ok=True)
                     for t in range(frame_start, frame_end + 1):
                         file_full_name = f"{str(t).zfill(4)}.{file_ext}"
-                        url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{file_name}/{file_full_name}"
-                        local_path = os.path.join(output_dir, file_name, file_full_name)
-                        add_work_order(url, local_path, f"{file_name}/{file_full_name}")
+                        url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{render_pass_output_name}/{file_full_name}"
+                        local_path = os.path.join(output_dir, render_pass_output_name, file_full_name)
+                        add_work_order(url, local_path, f"{render_pass_output_name}/{file_full_name}")
 
         os.makedirs(output_dir, exist_ok=True)
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(job["render_format"], "unknown")

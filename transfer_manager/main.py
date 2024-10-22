@@ -16,7 +16,7 @@ def main():
     )
 
     from .middleware.user_data import user_data
-    from .middleware.cors import cors
+    from .middleware.cors import cors, cors_before
     from .exception import handle_exceptions
     from .options import options
     from .index import index
@@ -39,6 +39,7 @@ def main():
 
     app = sanic.Sanic("octa_transfer_manager")
     app.middleware(cors, "response")
+    app.middleware(cors_before, "request")
     app.error_handler.add(Exception, handle_exceptions)
 
     bp_api = sanic.Blueprint("api", "api")

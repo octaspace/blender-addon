@@ -11,7 +11,10 @@ from ..classes.transfer import (
 from ..classes.upload import Upload
 from ..classes.download import Download
 from ..json_dumps import json_dumps
+import logging
 import filedialpy
+
+logger = logging.getLogger(__name__)
 
 
 async def create_upload(request: Request):
@@ -28,14 +31,16 @@ async def create_upload(request: Request):
 
 
 async def create_download(request: Request):
-    f = filedialpy.openDir()
-    print("Download Path: ", f)
-
     args = request.json
+    f = args.get('local_dir_path', None)
+    if f is None:
+        f = filedialpy.openDir()
+    logger.info("Download Path: ", f)
+
     download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])
     transfer_manager.add(download)
     download.start()
-    print("DOWNLOAD STARTED")
+    logger.info("DOWNLOAD STARTED")
     return json(download.id)
 
 
