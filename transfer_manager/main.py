@@ -32,27 +32,29 @@ def main():
     try:
         # change title of console window in windows
         from os import system
+
         system("title Transfer Manager")
     except:
         pass
 
     app = sanic.Sanic("octa_transfer_manager")
-    app.middleware(cors, 'response')
+    app.middleware(cors, "response")
     app.error_handler.add(Exception, handle_exceptions)
 
     bp_api = sanic.Blueprint("api", "api")
     bp_api.middleware(user_data, "request")
 
-    bp_api.add_route(create_download, "/download", methods=("POST",))
-    bp_api.add_route(create_upload, "/upload", methods=("POST",))
-    bp_api.add_route(get_all_transfers, "/transfers", methods=("GET",))
+    bp_api.add_route(create_download, "/download", methods=("POST", "OPTIONS"))
+    bp_api.add_route(create_upload, "/upload", methods=("POST", "OPTIONS"))
+    bp_api.add_route(get_all_transfers, "/transfers", methods=("GET", "OPTIONS"))
     bp_api.add_route(get_transfer, "/transfers/<id:str>", methods=("GET",))
     bp_api.add_route(delete_transfer, "/transfers/<id:str>", methods=("DELETE",))
-    bp_api.add_route(set_transfer_status, "/transfers/<id:str>/status", methods=("PUT",))
+    bp_api.add_route(
+        set_transfer_status, "/transfers/<id:str>/status", methods=("PUT",)
+    )
 
     app.blueprint(bp_api)
     app.add_route(index, "/", methods=("GET",))
-    app.add_route(options, '/<path:path>', methods=("OPTIONS",))
     return app
 
 
