@@ -651,11 +651,17 @@ def transfer_manager_section(layout, properties):
         is_running = tm_network_status["reachable"]
         box.label(text="Transfer Manager", icon="EXPORT")
         if is_running:
+            # Display additional info
+            version = tm_network_status.get("version", "Unknown")
+            process_id = tm_network_status.get("process_id", "N/A")
+            box.label(text=f"Version: {version}", icon="INFO")
+            box.label(text=f"Process ID: {process_id}", icon="INFO")
             op = box.operator(
                 "octa.transfer_manager", icon="CANCEL", text="Stop Transfer Manager"
             )
             op.state = False
         else:
+            box.label(text="Status: Not Running", icon="INFO")
             op = box.operator(
                 "octa.transfer_manager", icon="PLAY", text="Start Transfer Manager"
             )

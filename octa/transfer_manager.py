@@ -8,7 +8,12 @@ import bpy
 from bpy.props import BoolProperty
 
 TM_HOST = "http://127.0.0.1:7780"
-tm_network_status = {"reachable": False, "last_checked": 0.0}
+tm_network_status = {
+    "reachable": False,
+    "last_checked": 0.0,
+    "process_id": None,
+    "version": None,
+}
 
 
 class JobInformation(TypedDict):
@@ -63,12 +68,23 @@ def create_download(
 
 
 def is_reachable() -> bool:
-    """Check if the Transfer Manager is reachable via network request."""
+    """Check if the Transfer Manager is reachable via the transfer_manager_info endpoint."""
     try:
-        requests.get(TM_HOST, timeout=0.5)
-        return True
+        response = requests.get(get_url("/transfer_manager_info"), timeout=0.5)
+        if response.status_code == 200:
+            info = response.json()
+            # Update the global status with the received info
+            tm_network_status["reachable"] = True
+            tm_network_status["process_id"] = info.get("process_id")
+            tm_network_status["version"] = info.get("version")
+            return True
     except:
-        return False
+        pass
+    # If the request failed or returned an unexpected status code
+    tm_network_status["reachable"] = False
+    tm_network_status["process_id"] = None
+    tm_network_status["version"] = None
+    return False
 
 
 def ensure_running() -> bool:
@@ -95,10 +111,7 @@ def ensure_running() -> bool:
 
 def update_tm_status():
     """Periodically check Transfer Manager network reachability and update the status."""
-    try:
-        tm_network_status["reachable"] = is_reachable()
-    except:
-        tm_network_status["reachable"] = False
+    is_reachable()
     tm_network_status["last_checked"] = time.time()
     # Schedule to run again in 3 seconds
     return 3.0
@@ -113,9 +126,10 @@ class OCTA_OT_TransferManager(bpy.types.Operator):
 
     def execute(self, context):
         if self.state:
+            # Start the Transfer Manager
             while not ensure_running():
+                print("Failed to start Transfer Manager, retrying in 3 seconds")
                 time.sleep(3)
-                print("waiting for transfer manager")
         else:
             # Stop the Transfer Manager
             if is_reachable():
@@ -124,6 +138,9 @@ class OCTA_OT_TransferManager(bpy.types.Operator):
                     response = requests.post(get_url("/shutdown"), timeout=0.5)
                     if response.status_code == 200:
                         self.report({"INFO"}, "Transfer Manager stopped")
+                        tm_network_status["reachable"] = False
+                        tm_network_status["process_id"] = None
+                        tm_network_status["version"] = None
                     else:
                         self.report({"ERROR"}, "Failed to stop Transfer Manager")
                 except Exception as e:
