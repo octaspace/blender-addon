@@ -1,15 +1,14 @@
 import requests
 import sys
 import os
-import tempfile
-from .util import spawn_detached_process, is_process_running, UserData
+import time
+from .util import spawn_detached_process, UserData
 from typing import TypedDict
-import signal
 import bpy
 from bpy.props import BoolProperty
 
-
 TM_HOST = "http://127.0.0.1:7780"
+tm_network_status = {"reachable": False, "last_checked": 0.0}
 
 
 class JobInformation(TypedDict):
@@ -63,61 +62,46 @@ def create_download(
     return response.json()
 
 
-def is_reachable():
+def is_reachable() -> bool:
+    """Check if the Transfer Manager is reachable via network request."""
     try:
-        requests.get(TM_HOST, timeout=5)
+        requests.get(TM_HOST, timeout=0.5)
         return True
     except:
         return False
 
 
-def get_tm_pid_path():
-    return os.path.join(tempfile.gettempdir(), "tm.pid")
-
-
 def ensure_running() -> bool:
-    def start_tm():
+    """Ensure that the Transfer Manager is running, or start it if not."""
+    if is_reachable():
+        print("Transfer Manager already running")
+        return True
+    else:
+        # Start the Transfer Manager
         print("Starting Transfer Manager")
         process = spawn_detached_process(
             [sys.executable, "-m", "transfer_manager.main"],
             cwd=os.path.join(os.path.dirname(os.path.dirname(__file__))),
         )
+        print(f"Detached process with PID {process.pid}")
 
-        print(f"detached process with pid {process.pid}")
-
-        with open(get_tm_pid_path(), "wt") as f:
-            f.write(str(process.pid))
-
-        return is_reachable()
-
-    if os.path.isfile(get_tm_pid_path()):
-        with open(get_tm_pid_path(), "rt") as f:
-            pid = f.read()
-        if len(pid) < 1 or not is_process_running(int(pid)):
-            # pid file, but process not running
-            return start_tm()
-    else:
-        # no pid file. start from scratch
-        return start_tm()
-
-    print("Transfer Manager already running")
-    return is_reachable()
-
-
-def is_tm_running() -> bool:
-    """Check if the Transfer Manager is running without starting it."""
-    pid_path = get_tm_pid_path()
-    if os.path.isfile(pid_path):
-        with open(pid_path, "rt") as f:
-            pid = f.read()
-        if pid and is_process_running(int(pid)):
-            # Check if the server is reachable
-            try:
-                requests.get(TM_HOST, timeout=5)
+        # Wait for it to become reachable
+        for _ in range(10):  # Wait up to 5 seconds (0.5 * 10)
+            if is_reachable():
                 return True
-            except:
-                return False
-    return False
+            time.sleep(0.5)
+        return False
+
+
+def update_tm_status():
+    """Periodically check Transfer Manager network reachability and update the status."""
+    try:
+        tm_network_status["reachable"] = is_reachable()
+    except:
+        tm_network_status["reachable"] = False
+    tm_network_status["last_checked"] = time.time()
+    # Schedule to run again in 3 seconds
+    return 3.0
 
 
 class OCTA_OT_TransferManager(bpy.types.Operator):
@@ -129,26 +113,21 @@ class OCTA_OT_TransferManager(bpy.types.Operator):
 
     def execute(self, context):
         if self.state:
-            # Start the Transfer Manager
-            if ensure_running():
-                self.report({"INFO"}, "Transfer Manager started")
-            else:
-                self.report({"ERROR"}, "Failed to start Transfer Manager")
+            while not ensure_running():
+                time.sleep(3)
+                print("waiting for transfer manager")
         else:
             # Stop the Transfer Manager
-            pid_path = get_tm_pid_path()
-            if os.path.isfile(pid_path):
-                with open(pid_path, "rt") as f:
-                    pid = f.read()
-                if pid:
-                    try:
-                        os.kill(int(pid), signal.SIGTERM)
-                        os.remove(pid_path)
+            if is_reachable():
+                try:
+                    # Send a shutdown request to the Transfer Manager
+                    response = requests.post(get_url("/shutdown"), timeout=0.5)
+                    if response.status_code == 200:
                         self.report({"INFO"}, "Transfer Manager stopped")
-                    except Exception as e:
-                        self.report({"ERROR"}, f"Failed to stop Transfer Manager: {e}")
-                else:
-                    self.report({"INFO"}, "Transfer Manager is not running")
+                    else:
+                        self.report({"ERROR"}, "Failed to stop Transfer Manager")
+                except Exception as e:
+                    self.report({"ERROR"}, f"Failed to stop Transfer Manager: {e}")
             else:
                 self.report({"INFO"}, "Transfer Manager is not running")
         return {"FINISHED"}

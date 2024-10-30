@@ -11,7 +11,7 @@ from .util import (
 )
 from .icon_manager import IconManager
 
-from ..octa.transfer_manager import is_reachable
+from ..octa.transfer_manager import tm_network_status
 
 # Global dictionary to store visibility states
 visibility_states = {}
@@ -648,7 +648,7 @@ def content_manager(layout, context):
 def transfer_manager_section(layout, properties):
     box = section(layout, properties, "transfer_manager_visible", "Transfer Manager")
     if box is not None:
-        is_running = is_reachable()
+        is_running = tm_network_status["reachable"]
         box.label(text="Transfer Manager", icon="EXPORT")
         if is_running:
             op = box.operator(
