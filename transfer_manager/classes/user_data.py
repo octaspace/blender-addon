@@ -1,7 +1,7 @@
 class UserData:
     def __init__(self, farm_host, api_token, qm_auth_token):
         self.farm_host = farm_host  # host of the private farm
-        self.api_token = api_token  # api token to talk to cube and r2 worker
+        self.api_token = api_token  # api token to talk to cube and r2 worker TODO: use new storage token
         self.qm_auth_token = qm_auth_token  # auth token used by the sarfis qm
 
     def to_dict(self):

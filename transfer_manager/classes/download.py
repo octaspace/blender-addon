@@ -14,7 +14,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-DOWNLOAD_RETRIES = 3
+DOWNLOAD_RETRY_INTERVAL = 5
 WORKER_COUNT = 4
 
 
@@ -24,6 +24,7 @@ class DownloadWorkOrder:
     local_path: str
     rel_path: str
     progress: Progress
+    status_text: str = ""
 
     def small_dict(self):
         return {
@@ -48,25 +49,28 @@ class Download(Transfer):
 
         self.total_bytes_downloaded = 0
 
+    async def _check_pause(self):
+        while self.status == TRANSFER_STATUS_PAUSED:
+            await asyncio.sleep(1)
+
     async def download_worker(self, queue: asyncio.Queue):
         sub_progress = Progress()
         self.sub_progresses.append(sub_progress)
         client = httpx.AsyncClient()
-        while self.status != TRANSFER_STATUS_FAILURE:  # failure if another worker threw an exception
+        while self.status != TRANSFER_STATUS_FAILURE:  # failure if canceled
             work_order: DownloadWorkOrder = await queue.get()
             if work_order is None:
                 break
 
-            while self.status == TRANSFER_STATUS_PAUSED:
-                await asyncio.sleep(1)
+            await self._check_pause()
 
-            tries = 0
-            while tries <= DOWNLOAD_RETRIES:
-                tries += 1
+            while True:  # never give up downloading
                 try:
+                    work_order.status_text = "Initiating Download"
                     async with client.stream("GET", work_order.url, headers={'authentication': self.user_data.api_token}) as response:
-                        if response.status_code == 404:
-                            raise Exception(f"{work_order.rel_path} not found")
+                        if not 200 <= response.status_code <= 299:
+                            raise Exception(f"Request {work_order.rel_path} returned status {response.status_code}")
+                        work_order.status_text = "Downloading"
                         with open(work_order.local_path, 'wb') as f:
                             file_size = int(response.headers["Content-Length"])
                             sub_progress.set_done_total(response.num_bytes_downloaded, file_size)
@@ -78,10 +82,10 @@ class Download(Transfer):
                                 sub_progress.set_done(response.num_bytes_downloaded)
                                 work_order.progress.set_done(response.num_bytes_downloaded)
                     break
-                except:
+                except Exception as ex:
+                    work_order.status_text = ex.args[0] if len(ex.args) > 0 else str(ex)
                     sub_progress.set_done(0)
-                    if tries > DOWNLOAD_RETRIES:
-                        raise
+                    await asyncio.sleep(DOWNLOAD_RETRY_INTERVAL)
             self.progress.increase_done(1)
 
     async def run_download(self):
@@ -147,6 +151,7 @@ class Download(Transfer):
         except:
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = 'unknown exception'
+            logger.exception("exception during download")
 
     def start(self):
         if self.status == TRANSFER_STATUS_CREATED:
