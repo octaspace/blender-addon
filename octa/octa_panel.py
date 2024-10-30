@@ -597,6 +597,8 @@ def use_compositing_suggestion(context, layout):
 
 
 def suggestion_draw(context, layout, suggestion_count=0, draw=True):
+    if not context.scene:
+        return suggestion_count
     if context.scene.node_tree:
         denoise_nodes = [
             node for node in context.scene.node_tree.nodes if node.type == "DENOISE"
@@ -778,20 +780,20 @@ class OctaPanel(Panel):
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
 
-        box = section(layout, properties, "download_section_visible", "Download")
-        if box is not None:
-            box.use_property_split = True
-            box.use_property_decorate = False
-            box.prop(properties, "dl_job_id")
+            # box = section(layout, properties, "download_section_visible", "Download")
+            # if box is not None:
+            #     box.use_property_split = True
+            #     box.use_property_decorate = False
+            #     box.prop(properties, "dl_job_id")
 
-            row = box.row()
-            row.prop(properties, "dl_output_path")
+            #     row = box.row()
+            #     row.prop(properties, "dl_output_path")
 
-            row = box.row()
-            row.prop(properties, "dl_threads")
+            #     row = box.row()
+            #     row.prop(properties, "dl_threads")
 
-            row = box.row()
-            row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
+            #     row = box.row()
+            #     row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
 
         suggestion_count = 0
         suggestion_count = suggestion_draw(context, box, suggestion_count, False)
