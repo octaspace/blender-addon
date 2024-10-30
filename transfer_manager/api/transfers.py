@@ -11,8 +11,10 @@ from ..classes.transfer import (
 from ..classes.upload import Upload
 from ..classes.download import Download
 from ..json_dumps import json_dumps
+from ..version import version
 import logging
 import filedialpy
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -79,3 +81,11 @@ async def set_transfer_status(request: Request, id: str):
     else:
         return json(f"unsupported status {status}", status=400)
     return json(True)
+
+
+async def transfer_manager_info(request):
+    return json({
+        "service": "transfer_manager",
+        "version": version,
+        "process_id": os.getpid()
+    })
