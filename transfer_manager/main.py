@@ -27,6 +27,7 @@ def main():
         get_transfer,
         delete_transfer,
         set_transfer_status,
+        transfer_manager_info,
     )
 
     try:
@@ -50,9 +51,8 @@ def main():
     bp_api.add_route(get_all_transfers, "/transfers", methods=("GET", "OPTIONS"))
     bp_api.add_route(get_transfer, "/transfers/<id:str>", methods=("GET",))
     bp_api.add_route(delete_transfer, "/transfers/<id:str>", methods=("DELETE",))
-    bp_api.add_route(
-        set_transfer_status, "/transfers/<id:str>/status", methods=("PUT",)
-    )
+    bp_api.add_route(set_transfer_status, "/transfers/<id:str>/status", methods=("PUT",))
+    bp_api.add_route(transfer_manager_info, "/transfer_manager_info", methods=("GET",))
 
     app.blueprint(bp_api)
     app.add_route(index, "/", methods=("GET",))
