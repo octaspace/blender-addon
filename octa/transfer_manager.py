@@ -4,6 +4,9 @@ import os
 import tempfile
 from .util import spawn_detached_process, is_process_running, UserData
 from typing import TypedDict
+import signal
+import bpy
+
 
 TM_HOST = "http://127.0.0.1:7780"
 
@@ -98,3 +101,36 @@ def ensure_running() -> bool:
 
     print("Transfer Manager already running")
     return is_reachable()
+
+
+class OCTA_OT_TransferManager(bpy.types.Operator):
+    bl_idname = "octa.transfer_manager"
+    bl_label = "Transfer Manager"
+    bl_description = "Start or stop the Transfer Manager"
+
+    state: bpy.props.BoolProperty(name="State", description="State", default=True)
+
+    def execute(self, context):
+        if self.state:
+            # Start the Transfer Manager
+            if ensure_running():
+                self.report({"INFO"}, "Transfer Manager started")
+            else:
+                self.report({"ERROR"}, "Failed to start Transfer Manager")
+        else:
+            # Stop the Transfer Manager
+            pid_path = get_tm_pid_path()
+            print(f"pid_path: {pid_path}")
+            if os.path.isfile(pid_path):
+                with open(pid_path, "rt") as f:
+                    pid = f.read()
+                if pid:
+                    try:
+                        os.kill(int(pid), signal.SIGTERM)
+                        os.remove(pid_path)
+                        self.report({"INFO"}, "Transfer Manager stopped")
+                    except Exception as e:
+                        self.report({"ERROR"}, f"Failed to stop Transfer Manager: {e}")
+            else:
+                self.report({"INFO"}, "Transfer Manager is not running")
+        return {"FINISHED"}

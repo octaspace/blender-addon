@@ -180,7 +180,10 @@ class OctaProperties(PropertyGroup):
     render_output_path_visible: get_section_toggle_type(
         name="Render Output Section Visible"
     )
-    download_section_visible: get_section_toggle_type(name="Download Section Visible")
+    # download_section_visible: get_section_toggle_type(name="Download Section Visible")
+    transfer_manager_visible: get_section_toggle_type(
+        name="Transfer Manager Section Visible"
+    )
     suggestions_section_visible: get_section_toggle_type(
         name="Suggestions Section Visible"
     )

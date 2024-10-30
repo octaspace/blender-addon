@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
-from .download_job_operator import DownloadJobOperator
 from .util import (
     get_all_render_passes,
     get_preferences,
@@ -11,6 +10,8 @@ from .util import (
     section,
 )
 from .icon_manager import IconManager
+
+from ..octa.transfer_manager import is_reachable
 
 # Global dictionary to store visibility states
 visibility_states = {}
@@ -599,6 +600,7 @@ def use_compositing_suggestion(context, layout):
 def suggestion_draw(context, layout, suggestion_count=0, draw=True):
     if not context.scene:
         return suggestion_count
+
     if context.scene.node_tree:
         denoise_nodes = [
             node for node in context.scene.node_tree.nodes if node.type == "DENOISE"
@@ -641,6 +643,23 @@ def content_manager(layout, context):
 
     if section_box is not None:
         render_output_panel(section_box)
+
+
+def transfer_manager_section(layout, properties):
+    box = section(layout, properties, "transfer_manager_visible", "Transfer Manager")
+    if box is not None:
+        is_running = is_reachable()
+        box.label(text="Transfer Manager", icon="EXPORT")
+        if is_running:
+            op = box.operator(
+                "octa.transfer_manager", icon="CANCEL", text="Stop Transfer Manager"
+            )
+            op.state = False
+        else:
+            op = box.operator(
+                "octa.transfer_manager", icon="PLAY", text="Start Transfer Manager"
+            )
+            op.state = True
 
 
 class OctaPanel(Panel):
@@ -780,20 +799,22 @@ class OctaPanel(Panel):
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
 
-            # box = section(layout, properties, "download_section_visible", "Download")
-            # if box is not None:
-            #     box.use_property_split = True
-            #     box.use_property_decorate = False
-            #     box.prop(properties, "dl_job_id")
+        transfer_manager_section(layout, properties)
 
-            #     row = box.row()
-            #     row.prop(properties, "dl_output_path")
+        # box = section(layout, properties, "download_section_visible", "Download")
+        # if box is not None:
+        #     box.use_property_split = True
+        #     box.use_property_decorate = False
+        #     box.prop(properties, "dl_job_id")
 
-            #     row = box.row()
-            #     row.prop(properties, "dl_threads")
+        #     row = box.row()
+        #     row.prop(properties, "dl_output_path")
 
-            #     row = box.row()
-            #     row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
+        #     row = box.row()
+        #     row.prop(properties, "dl_threads")
+
+        #     row = box.row()
+        #     row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
 
         suggestion_count = 0
         suggestion_count = suggestion_draw(context, box, suggestion_count, False)
