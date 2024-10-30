@@ -6,6 +6,7 @@ from .util import spawn_detached_process, is_process_running, UserData
 from typing import TypedDict
 import signal
 import bpy
+from bpy.props import BoolProperty
 
 
 TM_HOST = "http://127.0.0.1:7780"
@@ -103,12 +104,28 @@ def ensure_running() -> bool:
     return is_reachable()
 
 
+def is_tm_running() -> bool:
+    """Check if the Transfer Manager is running without starting it."""
+    pid_path = get_tm_pid_path()
+    if os.path.isfile(pid_path):
+        with open(pid_path, "rt") as f:
+            pid = f.read()
+        if pid and is_process_running(int(pid)):
+            # Check if the server is reachable
+            try:
+                requests.get(TM_HOST, timeout=5)
+                return True
+            except:
+                return False
+    return False
+
+
 class OCTA_OT_TransferManager(bpy.types.Operator):
     bl_idname = "octa.transfer_manager"
     bl_label = "Transfer Manager"
     bl_description = "Start or stop the Transfer Manager"
 
-    state: bpy.props.BoolProperty(name="State", description="State", default=True)
+    state: BoolProperty()
 
     def execute(self, context):
         if self.state:
@@ -120,7 +137,6 @@ class OCTA_OT_TransferManager(bpy.types.Operator):
         else:
             # Stop the Transfer Manager
             pid_path = get_tm_pid_path()
-            print(f"pid_path: {pid_path}")
             if os.path.isfile(pid_path):
                 with open(pid_path, "rt") as f:
                     pid = f.read()
@@ -131,6 +147,8 @@ class OCTA_OT_TransferManager(bpy.types.Operator):
                         self.report({"INFO"}, "Transfer Manager stopped")
                     except Exception as e:
                         self.report({"ERROR"}, f"Failed to stop Transfer Manager: {e}")
+                else:
+                    self.report({"INFO"}, "Transfer Manager is not running")
             else:
                 self.report({"INFO"}, "Transfer Manager is not running")
         return {"FINISHED"}
