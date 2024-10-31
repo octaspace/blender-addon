@@ -817,6 +817,8 @@ class OctaPanel(Panel):
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
 
+        SubmitJobOperator.set_installed_addons()
+
         addon_send_section = section(
             layout, properties, "addon_section_visible", "Included Addons"
         )
