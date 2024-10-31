@@ -195,6 +195,8 @@ class OctaProperties(PropertyGroup):
         name="Content Manager Section Visible"
     )
 
+    addon_section_visible: get_section_toggle_type(name="Addon Section Visible")
+
     debug_zip: bpy.props.BoolProperty(
         name="Debug ZIP",
         description="Enable debug ZIP for additional logging",

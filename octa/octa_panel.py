@@ -18,6 +18,38 @@ from ..octa.transfer_manager import transfer_manager_section
 visibility_states = {}
 
 
+class ToggleAddonSelectionOperator(bpy.types.Operator):
+    """Toggle add-on selection for zipping"""
+
+    bl_idname = "wm.toggle_addon_selection"
+    bl_label = "Toggle Addon Selection"
+
+    addon_name: bpy.props.StringProperty()
+
+    def execute(self, context):
+        addons_to_send[self.addon_name] = not addons_to_send.get(self.addon_name, False)
+        context.area.tag_redraw()
+        return {"FINISHED"}
+
+
+def addon_section(layout, addon_name, addon_label=None):
+    if addon_name is None:
+        return None
+    global addons_to_send
+    enabled = addons_to_send.get(addon_name, False)
+
+    row = layout.row()
+    col = row.column(align=True)
+    icon = "CHECKBOX_HLT" if enabled else "CHECKBOX_DEHLT"
+
+    op = col.operator("wm.toggle_addon_selection", text="", icon=icon, emboss=False)
+    op.addon_name = addon_name
+
+    col = row.column()
+    col.label(text=addon_label)
+    col.enabled = enabled
+
+
 class ToggleVisibilityOperator(bpy.types.Operator):
     """Toggle the visibility of a section"""
 
@@ -784,6 +816,28 @@ class OctaPanel(Panel):
 
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
+
+        addon_send_section = section(
+            box, properties, "addon_section_visible", "Included Addons"
+        )
+
+        if addon_send_section is not None:
+            row = addon_send_section.row()
+            row.label(text="Choose which addons to send to the farm:")
+
+            addon_col = addon_send_section.column(align=True)
+
+            if len(SubmitJobOperator.installed_addons) == 0:
+                addon_col.label(text="No Addons Enabled", icon="INFO")
+
+            for addon in SubmitJobOperator.installed_addons:
+                addon_name = [
+                    mod.bl_info.get("name")
+                    for mod in SubmitJobOperator.installed_addons
+                    if mod.__name__ == addon.__name__
+                ][0]
+                if "octaspace" not in addon_name.lower():
+                    addon_section(addon_col, addon.__name__, addon_name)
 
         # box = section(layout, properties, "download_section_visible", "Download")
         # if box is not None:

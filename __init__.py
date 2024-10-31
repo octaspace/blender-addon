@@ -23,6 +23,8 @@ from .octa.icon_manager import IconManager
 
 from .octa.transfer_manager import OCTA_OT_TransferManager, OCTA_OT_OpenTransferManager
 
+from .octa.zip_addons import ZIPAddonsOperator
+
 
 from .octa.octa_properties import OctaProperties, OctaNodeProperties
 from .octa.install_dependencies import InstallDependenciesOperator
