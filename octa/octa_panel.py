@@ -16,6 +16,7 @@ from ..octa.transfer_manager import transfer_manager_section
 
 # Global dictionary to store visibility states
 visibility_states = {}
+addons_to_send = {}
 
 
 class ToggleAddonSelectionOperator(bpy.types.Operator):

@@ -84,15 +84,6 @@ def subprocess_unpacker():
     return temp_blend_name, folder
 
 
-def pack_blend(self, infile, zippath):
-    # print all of the functions in blender_asset_tracer
-    with zipped.ZipPacker(infile, infile.parent, zippath) as packer:
-        packer.strategise()
-        packer.execute()
-
-    self.zip_addons(zippath)
-
-
 def wait_for_save():
     while f"{os.path.split(bpy.data.filepath)[1]}@" in os.listdir(
         os.path.dirname(bpy.data.filepath)
@@ -238,6 +229,14 @@ class SubmitJobOperator(Operator):
 
             zipf.writestr("enabled_addons.json", json.dumps(enabled_addons))
 
+    def pack_blend(self, infile, zippath):
+        # print all of the functions in blender_asset_tracer
+        with zipped.ZipPacker(infile, infile.parent, zippath) as packer:
+            packer.strategise()
+            packer.execute()
+
+        self.zip_addons(zippath)
+
     def validate_properties(self, context):
         scene = context.scene
         job_properties = SubmitJobProperties()
@@ -335,7 +334,7 @@ class SubmitJobOperator(Operator):
             self.set_progress(0.5)  # TODO: track progress of packing
 
             print("packing blend")
-            pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
+            self.pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
             if self.debug_zip:
                 print("DEBUG packed blend: ", temp_zip)
                 return
