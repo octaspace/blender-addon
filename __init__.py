@@ -21,7 +21,7 @@ from bpy.utils import register_class, unregister_class, previews
 
 from .octa.icon_manager import IconManager
 
-from .octa.transfer_manager import OCTA_OT_TransferManager
+from .octa.transfer_manager import OCTA_OT_TransferManager, OCTA_OT_OpenTransferManager
 
 
 from .octa.octa_properties import OctaProperties, OctaNodeProperties
@@ -125,6 +125,7 @@ classes = (
     ToggleNodeMuteOperator,
     InstallDependenciesOperator,
     OCTA_OT_TransferManager,
+    OCTA_OT_OpenTransferManager,
 )
 
 

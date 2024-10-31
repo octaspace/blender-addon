@@ -1,5 +1,6 @@
 import bpy
 import os
+import time
 from pathlib import Path
 from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
@@ -11,7 +12,7 @@ from .util import (
 )
 from .icon_manager import IconManager
 
-from ..octa.transfer_manager import tm_network_status
+from ..octa.transfer_manager import transfer_manager_section
 
 # Global dictionary to store visibility states
 visibility_states = {}
@@ -645,29 +646,6 @@ def content_manager(layout, context):
         render_output_panel(section_box)
 
 
-def transfer_manager_section(layout, properties):
-    box = section(layout, properties, "transfer_manager_visible", "Transfer Manager")
-    if box is not None:
-        is_running = tm_network_status["reachable"]
-        box.label(text="Transfer Manager", icon="EXPORT")
-        if is_running:
-            # Display additional info
-            version = tm_network_status.get("version", "Unknown")
-            process_id = tm_network_status.get("process_id", "N/A")
-            box.label(text=f"Version: {version}", icon="INFO")
-            box.label(text=f"Process ID: {process_id}", icon="INFO")
-            op = box.operator(
-                "octa.transfer_manager", icon="CANCEL", text="Stop Transfer Manager"
-            )
-            op.state = False
-        else:
-            box.label(text="Status: Not Running", icon="INFO")
-            op = box.operator(
-                "octa.transfer_manager", icon="PLAY", text="Start Transfer Manager"
-            )
-            op.state = True
-
-
 class OctaPanel(Panel):
     bl_idname = "SCENE_PT_octa_panel"
     bl_label = "Octa Render"
@@ -778,6 +756,8 @@ class OctaPanel(Panel):
         if is_running:
             row.enabled = False
 
+        transfer_manager_section(layout, properties)
+
         box = section(
             layout, properties, "advanced_section_visible", "Advanced Options"
         )
@@ -804,8 +784,6 @@ class OctaPanel(Panel):
 
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
-
-        transfer_manager_section(layout, properties)
 
         # box = section(layout, properties, "download_section_visible", "Download")
         # if box is not None:
