@@ -818,7 +818,7 @@ class OctaPanel(Panel):
             content_manager(content_manager_section, context)
 
         addon_send_section = section(
-            box, properties, "addon_section_visible", "Included Addons"
+            layout, properties, "addon_section_visible", "Included Addons"
         )
 
         if addon_send_section is not None:

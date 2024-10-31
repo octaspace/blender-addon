@@ -84,11 +84,13 @@ def subprocess_unpacker():
     return temp_blend_name, folder
 
 
-def pack_blend(infile, zippath):
+def pack_blend(self, infile, zippath):
     # print all of the functions in blender_asset_tracer
     with zipped.ZipPacker(infile, infile.parent, zippath) as packer:
         packer.strategise()
         packer.execute()
+
+    self.zip_addons(zippath)
 
 
 def wait_for_save():
