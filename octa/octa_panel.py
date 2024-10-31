@@ -1,9 +1,9 @@
 import bpy
 import os
+import time
 from pathlib import Path
 from bpy.types import Panel
 from .submit_job_operator import SubmitJobOperator
-from .download_job_operator import DownloadJobOperator
 from .util import (
     get_all_render_passes,
     get_preferences,
@@ -12,8 +12,43 @@ from .util import (
 )
 from .icon_manager import IconManager
 
+from ..octa.transfer_manager import transfer_manager_section
+
 # Global dictionary to store visibility states
 visibility_states = {}
+addons_to_send = {}
+
+
+class ToggleAddonSelectionOperator(bpy.types.Operator):
+    """Toggle add-on selection for zipping"""
+
+    bl_idname = "wm.toggle_addon_selection"
+    bl_label = "Toggle Addon Selection"
+
+    addon_name: bpy.props.StringProperty()
+
+    def execute(self, context):
+        addons_to_send[self.addon_name] = not addons_to_send.get(self.addon_name, False)
+        context.area.tag_redraw()
+        return {"FINISHED"}
+
+
+def addon_section(layout, addon_name, addon_label=None):
+    if addon_name is None:
+        return None
+    global addons_to_send
+    enabled = addons_to_send.get(addon_name, False)
+
+    row = layout.row()
+    col = row.column(align=True)
+    icon = "CHECKBOX_HLT" if enabled else "CHECKBOX_DEHLT"
+
+    op = col.operator("wm.toggle_addon_selection", text="", icon=icon, emboss=False)
+    op.addon_name = addon_name
+
+    col = row.column()
+    col.label(text=addon_label)
+    col.enabled = enabled
 
 
 class ToggleVisibilityOperator(bpy.types.Operator):
@@ -597,6 +632,9 @@ def use_compositing_suggestion(context, layout):
 
 
 def suggestion_draw(context, layout, suggestion_count=0, draw=True):
+    if not context.scene:
+        return suggestion_count
+
     if context.scene.node_tree:
         denoise_nodes = [
             node for node in context.scene.node_tree.nodes if node.type == "DENOISE"
@@ -751,6 +789,8 @@ class OctaPanel(Panel):
         if is_running:
             row.enabled = False
 
+        transfer_manager_section(layout, properties)
+
         box = section(
             layout, properties, "advanced_section_visible", "Advanced Options"
         )
@@ -778,20 +818,44 @@ class OctaPanel(Panel):
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
 
-        box = section(layout, properties, "download_section_visible", "Download")
-        if box is not None:
-            box.use_property_split = True
-            box.use_property_decorate = False
-            box.prop(properties, "dl_job_id")
+        SubmitJobOperator.set_installed_addons()
 
-            row = box.row()
-            row.prop(properties, "dl_output_path")
+        addon_send_section = section(
+            layout, properties, "addon_section_visible", "Included Addons"
+        )
 
-            row = box.row()
-            row.prop(properties, "dl_threads")
+        if addon_send_section is not None:
+            row = addon_send_section.row()
+            row.label(text="Choose which addons to send to the farm:")
 
-            row = box.row()
-            row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
+            addon_col = addon_send_section.column(align=True)
+
+            if len(SubmitJobOperator.installed_addons) == 0:
+                addon_col.label(text="No Addons Enabled", icon="INFO")
+
+            for addon in SubmitJobOperator.installed_addons:
+                addon_name = [
+                    mod.bl_info.get("name")
+                    for mod in SubmitJobOperator.installed_addons
+                    if mod.__name__ == addon.__name__
+                ][0]
+                if "octaspace" not in addon_name.lower():
+                    addon_section(addon_col, addon.__name__, addon_name)
+
+        # box = section(layout, properties, "download_section_visible", "Download")
+        # if box is not None:
+        #     box.use_property_split = True
+        #     box.use_property_decorate = False
+        #     box.prop(properties, "dl_job_id")
+
+        #     row = box.row()
+        #     row.prop(properties, "dl_output_path")
+
+        #     row = box.row()
+        #     row.prop(properties, "dl_threads")
+
+        #     row = box.row()
+        #     row.operator(DownloadJobOperator.bl_idname, icon="SORT_ASC")
 
         suggestion_count = 0
         suggestion_count = suggestion_draw(context, box, suggestion_count, False)

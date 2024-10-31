@@ -12,6 +12,26 @@ from ..blender_asset_tracer.blendfile import close_all_cached
 from .octa_properties import SubmitJobProperties
 from .transfer_manager import create_upload, ensure_running
 from .util import get_all_render_passes, unpack_octa_farm_config
+import addon_utils
+import json
+import zipfile
+
+DEFAULT_ADDONS = [
+    "io_anim_bvh",
+    "bl_pkg",
+    "copy_global_transform",
+    "cycles",
+    "io_scene_fbx",
+    "io_scene_gltf2",
+    "hydra_storm",
+    "ui_translate",
+    "node_wrangler",
+    "pose_library",
+    "rigify",
+    "io_curve_svg",
+    "io_mesh_uv_layout",
+    "viewport_vr_preview",
+]
 
 
 def subprocess_unpacker():
@@ -23,7 +43,9 @@ def subprocess_unpacker():
         print(f"creating {folder}")
         os.makedirs(folder, exist_ok=True)
 
-    temp_blend_name = os.path.abspath(os.path.join(folder, os.path.basename(current_file_path)))
+    temp_blend_name = os.path.abspath(
+        os.path.join(folder, os.path.basename(current_file_path))
+    )
 
     bpy.ops.wm.save_as_mainfile(filepath=temp_blend_name, copy=True, compress=True)
 
@@ -31,7 +53,9 @@ def subprocess_unpacker():
 
     script_path = os.path.realpath(__file__)
     dir_path = os.path.dirname(script_path)
-    subprocess_unpacker_script = os.path.abspath(os.path.join(dir_path, "subprocess_unpacker.py"))
+    subprocess_unpacker_script = os.path.abspath(
+        os.path.join(dir_path, "subprocess_unpacker.py")
+    )
 
     # Determine the name of the cache folder
     base_file_name = os.path.splitext(os.path.basename(current_file_path))[0]
@@ -50,8 +74,7 @@ def subprocess_unpacker():
         current_file_path,
         "--python",
         subprocess_unpacker_script,
-        "--factory-startup"
-        "--",
+        "--factory-startup" "--",
         "-save_path",
         temp_blend_name,
     ]
@@ -61,16 +84,9 @@ def subprocess_unpacker():
     return temp_blend_name, folder
 
 
-def pack_blend(infile, zippath):
-    # print all of the functions in blender_asset_tracer
-    with zipped.ZipPacker(infile, infile.parent, zippath) as packer:
-        packer.strategise()
-        packer.execute()
-
-
 def wait_for_save():
     while f"{os.path.split(bpy.data.filepath)[1]}@" in os.listdir(
-            os.path.dirname(bpy.data.filepath)
+        os.path.dirname(bpy.data.filepath)
     ):
         print("@ Detected, Waiting for save to finish")
         time.sleep(0.25)
@@ -89,8 +105,24 @@ class SubmitJobOperator(Operator):
 
     debug_zip: bpy.props.BoolProperty(name="Debug .zip", default=False)
 
+    installed_addons = []
+
+    addons_to_send: bpy.props.StringProperty(
+        name="Addons to Send",
+        default="",
+        description="Comma separated list of addons to send",
+    )
+
     def __init__(self):
         self._run_thread: Thread = None
+
+    @classmethod
+    def set_installed_addons(cls):
+        cls.installed_addons = [
+            mod
+            for mod in addon_utils.modules()
+            if addon_utils.check(mod.__name__)[1] and mod.__name__ not in DEFAULT_ADDONS
+        ]
 
     @classmethod
     def poll(cls, context):
@@ -166,6 +198,45 @@ class SubmitJobOperator(Operator):
         wm.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
+    def zip_addons(self, zip_path):
+        addons_to_send = self.addons_to_send.split(",")
+        print(addons_to_send)
+        addons_to_send = [
+            mod for mod in self.installed_addons if mod.__name__ in addons_to_send
+        ]
+
+        enabled_addons = [
+            mod.bl_info["name"]
+            for mod in addon_utils.modules()
+            if addon_utils.check(mod.__name__)[1]
+        ]
+
+        with zipfile.ZipFile(zip_path, "a", zipfile.ZIP_DEFLATED) as zipf:
+            for addon in addons_to_send:
+                addon_path = Path(addon.__file__).parent
+                addon_name = addon.__name__
+
+                for root, _, files in os.walk(addon_path):
+                    archive_root = os.path.relpath(root, addon_path)
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        zipf.write(
+                            file_path,
+                            os.path.join(
+                                "scripts", "addons", addon_name, archive_root, file
+                            ),
+                        )
+
+            zipf.writestr("enabled_addons.json", json.dumps(enabled_addons))
+
+    def pack_blend(self, infile, zippath):
+        # print all of the functions in blender_asset_tracer
+        with zipped.ZipPacker(infile, infile.parent, zippath) as packer:
+            packer.strategise()
+            packer.execute()
+
+        self.zip_addons(zippath)
+
     def validate_properties(self, context):
         scene = context.scene
         job_properties = SubmitJobProperties()
@@ -229,11 +300,15 @@ class SubmitJobOperator(Operator):
                 )
                 fail_validation = True
 
-            job_properties.advanced_section_visible = properties.advanced_section_visible
+            job_properties.advanced_section_visible = (
+                properties.advanced_section_visible
+            )
             job_properties.generate_video = properties.generate_video
             job_properties.match_scene = properties.match_scene
             job_properties.max_thumbnail_size = properties.max_thumbnail_size
-            job_properties.render_format = properties.render_format  # bpy.context.scene.render.image_settings.file_format
+            job_properties.render_format = (
+                properties.render_format
+            )  # bpy.context.scene.render.image_settings.file_format
             job_properties.render_output_path = properties.render_output_path
             job_properties.upload_threads = properties.upload_threads
             job_properties.batch_size = properties.batch_size
@@ -259,7 +334,7 @@ class SubmitJobOperator(Operator):
             self.set_progress(0.5)  # TODO: track progress of packing
 
             print("packing blend")
-            pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
+            self.pack_blend(Path(Path(job_properties.temp_blend_name)), temp_zip)
             if self.debug_zip:
                 print("DEBUG packed blend: ", temp_zip)
                 return
@@ -274,27 +349,30 @@ class SubmitJobOperator(Operator):
             except PermissionError:
                 pass  # cant delete it cause the asset packer somehow still has an open handle on it. too bad
 
-            metadata = {
-                "file_size": os.stat(temp_zip).st_size
-            }
+            metadata = {"file_size": os.stat(temp_zip).st_size}
 
             while not ensure_running():
                 time.sleep(3)
                 print("waiting for transfer manager")
             user_data = unpack_octa_farm_config(job_properties.octa_farm_config)
-            upload_id = create_upload(str(temp_zip), {
-                "batch_size": job_properties.batch_size,
-                "blend_name": os.path.basename(job_properties.temp_blend_name),
-                "blender_version": job_properties.blender_version,
-                "render_passes": get_all_render_passes(),
-                "frame_end": job_properties.frame_end,
-                "frame_start": job_properties.frame_start,
-                "frame_step": job_properties.frame_step,
-                "max_thumbnail_size": job_properties.max_thumbnail_size,
-                "name": job_properties.job_name,
-                "render_engine": bpy.context.scene.render.engine,
-                "render_format": job_properties.render_format
-            }, user_data, metadata)
+            upload_id = create_upload(
+                str(temp_zip),
+                {
+                    "batch_size": job_properties.batch_size,
+                    "blend_name": os.path.basename(job_properties.temp_blend_name),
+                    "blender_version": job_properties.blender_version,
+                    "render_passes": get_all_render_passes(),
+                    "frame_end": job_properties.frame_end,
+                    "frame_start": job_properties.frame_start,
+                    "frame_step": job_properties.frame_step,
+                    "max_thumbnail_size": job_properties.max_thumbnail_size,
+                    "name": job_properties.job_name,
+                    "render_engine": bpy.context.scene.render.engine,
+                    "render_format": job_properties.render_format,
+                },
+                user_data,
+                metadata,
+            )
 
             # TODO: enable this once frontend caught up
             # webbrowser.open(f"{user_data['farm_host']}/transfers/{upload_id}")

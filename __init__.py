@@ -21,6 +21,10 @@ from bpy.utils import register_class, unregister_class, previews
 
 from .octa.icon_manager import IconManager
 
+from .octa.transfer_manager import OCTA_OT_TransferManager, OCTA_OT_OpenTransferManager
+
+from .octa.zip_addons import ZIPAddonsOperator
+
 
 from .octa.octa_properties import OctaProperties, OctaNodeProperties
 from .octa.install_dependencies import InstallDependenciesOperator
@@ -30,6 +34,7 @@ from .octa.octa_panel import (
     ToggleNodeMuteOperator,
     ToggleSceneNodesOperator,
     ToggleVisibilityOperator,
+    ToggleAddonSelectionOperator,
 )
 
 from .octa.submit_job_operator import SubmitJobOperator
@@ -122,6 +127,10 @@ classes = (
     ToggleVisibilityOperator,
     ToggleNodeMuteOperator,
     InstallDependenciesOperator,
+    OCTA_OT_TransferManager,
+    OCTA_OT_OpenTransferManager,
+    ZIPAddonsOperator,
+    ToggleAddonSelectionOperator,
 )
 
 
