@@ -12,13 +12,11 @@ from dataclasses import dataclass
 import asyncio
 import os
 import math
-import logging
+from sanic.log import logger
 import sanic
 import webbrowser
 import shutil
 import time
-
-logger = logging.getLogger(__name__)
 
 UPLOAD_PART_SIZE = 25 * 1024 * 1024  # 25 MB
 UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1MB

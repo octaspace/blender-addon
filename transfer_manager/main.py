@@ -1,24 +1,9 @@
 def main():
-    import os
-    import tempfile
-    import logging.handlers
     import sanic
-
-    logging.basicConfig(
-        level=logging.INFO,
-        handlers=[
-            logging.handlers.RotatingFileHandler(
-                os.path.join(tempfile.gettempdir(), "tm.log"),
-                maxBytes=1024 * 1024 * 20,
-                backupCount=2,
-            )
-        ],
-    )
 
     from .middleware.user_data import user_data
     from .middleware.cors import cors, cors_before
     from .exception import handle_exceptions
-    from .options import options
     from .index import index
     from .api.transfers import (
         create_download,

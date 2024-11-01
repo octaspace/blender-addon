@@ -12,11 +12,9 @@ from ..classes.upload import Upload
 from ..classes.download import Download
 from ..json_dumps import json_dumps
 from ..version import version
-import logging
+from sanic.log import logger
 import filedialpy
 import os
-
-logger = logging.getLogger(__name__)
 
 
 async def create_upload(request: Request):

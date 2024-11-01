@@ -6,13 +6,11 @@ from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
 from .progress import Progress
 from .user_data import UserData
 import os
-import logging
+from sanic.log import logger
 import sanic
 import asyncio
 import httpx
 import time
-
-logger = logging.getLogger(__name__)
 
 DOWNLOAD_RETRY_INTERVAL = 5
 WORKER_COUNT = 4

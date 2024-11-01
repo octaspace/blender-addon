@@ -95,12 +95,12 @@ def ensure_running() -> bool:
         return True
     else:
         # Start the Transfer Manager
-        print("Starting Transfer Manager")
+        print("Starting Transfer Manager Buffer")
         process = spawn_detached_process(
-            [sys.executable, "-m", "transfer_manager.main"],
+            [sys.executable, "-m", "transfer_manager.buffer_main"],
             cwd=os.path.join(os.path.dirname(os.path.dirname(__file__))),
         )
-        print(f"Detached process with PID {process.pid}")
+        print(f"Started Transfer Manager Buffer with PID {process.pid}")
 
         # Wait for the service to become reachable
         for _ in range(10):  # Try for up to 30 seconds
