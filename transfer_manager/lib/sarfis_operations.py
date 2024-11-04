@@ -1,5 +1,5 @@
 from .sarfis_util import get_call_to_method_with_args
-from .apis.r2_worker_shared import R2_WORKER_ENDPOINT
+from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
 
 
 def ffmpeg():

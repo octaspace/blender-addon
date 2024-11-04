@@ -1,17 +1,15 @@
 from sanic import Request
-from sanic.response import json, empty
+from sanic.response import json
 from ..classes.transfer_manager import transfer_manager
 from ..classes.transfer import (
     TRANSFER_STATUS_PAUSED,
-    TRANSFER_STATUS_CREATED,
     TRANSFER_STATUS_FAILURE,
     TRANSFER_STATUS_RUNNING,
-    TRANSFER_STATUS_SUCCESS,
 )
 from ..classes.upload import Upload
 from ..classes.download import Download
-from ..json_dumps import json_dumps
-from ..version import version
+from ..lib.json_dumps import json_dumps
+from ..lib.version import version
 from sanic.log import logger
 import filedialpy
 import os

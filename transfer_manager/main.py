@@ -3,8 +3,8 @@ def main():
 
     from .middleware.user_data import user_data
     from .middleware.cors import cors, cors_before
-    from .exception import handle_exceptions
-    from .index import index
+    from .lib.exception import handle_exceptions
+    from .lib.index import index
     from .api.transfers import (
         create_download,
         create_upload,
