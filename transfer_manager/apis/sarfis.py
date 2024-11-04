@@ -1,5 +1,5 @@
 from .web_api_base import WebApiBase
-from ..classes.user_data import UserData
+from ..lib.user_data import UserData
 
 
 class SarfisExeception(Exception):

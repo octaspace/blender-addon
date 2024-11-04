@@ -1,10 +1,10 @@
 from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
 from ..apis.sarfis import Sarfis
-from ..lib.util import get_next_id, get_file_md5
-from ..lib.sarfis_operations import get_operations
+from .util import get_next_id, get_file_md5
+from .sarfis_operations import get_operations
 from .user_data import UserData
 from typing import TypedDict, BinaryIO
-from ..lib.version import version
+from .version import version
 from ..apis.r2_worker import AsyncR2Worker
 from .progress import Progress
 from traceback import print_exc

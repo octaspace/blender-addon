@@ -1,6 +1,6 @@
 from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
 from ..apis.sarfis import Sarfis
-from ..lib.util import IMAGE_TYPE_TO_EXTENSION, get_next_id
+from .util import IMAGE_TYPE_TO_EXTENSION, get_next_id
 from dataclasses import dataclass
 from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
 from .progress import Progress

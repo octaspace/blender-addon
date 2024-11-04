@@ -1,6 +1,6 @@
 import httpx
 from httpx._types import RequestContent
-from ..classes.user_data import UserData
+from ..lib.user_data import UserData
 from .r2_worker_shared import R2UploadedPart, R2UploadInfo, get_url, ensure_ok
 
 

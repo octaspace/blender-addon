@@ -1,13 +1,13 @@
 from sanic import Request
 from sanic.response import json
-from ..classes.transfer_manager import transfer_manager
-from ..classes.transfer import (
+from ..lib.transfer_manager import transfer_manager
+from ..lib.transfer import (
     TRANSFER_STATUS_PAUSED,
     TRANSFER_STATUS_FAILURE,
     TRANSFER_STATUS_RUNNING,
 )
-from ..classes.upload import Upload
-from ..classes.download import Download
+from ..lib.upload import Upload
+from ..lib.download import Download
 from ..lib.json_dumps import json_dumps
 from ..lib.version import version
 from sanic.log import logger
