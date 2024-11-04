@@ -36,6 +36,7 @@ async def create_download(request: Request):
     logger.info("Download Path: ", f)
 
     download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])
+    await download.initialize()
     transfer_manager.add(download)
     download.start()
     logger.info("DOWNLOAD STARTED")
