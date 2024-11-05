@@ -59,7 +59,7 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
 
         # register
         col = layout.column(align=True)
-        if not InstallDependenciesOperator.get_installed_packages_initialized:
+        if not InstallDependenciesOperator.get_installed_packages_initialized():
             InstallDependenciesOperator.set_installed_packages()
 
         _, missing_packages = InstallDependenciesOperator.check_dependencies_installed()
