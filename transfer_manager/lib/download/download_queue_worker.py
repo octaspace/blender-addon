@@ -1,35 +1,15 @@
 import asyncio
 import httpx
-from typing import TYPE_CHECKING
 from sanic.log import logger
 from traceback import format_exception
-from ..transfer import TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS
+from ..transfer import TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE
 from .download_work_order import DownloadWorkOrder
-from ..cancellation_token import CancellationToken
-from ..transfer_speed import TransferSpeed
+from ..transfer_queue_worker import TransferQueueWorker
 
-if TYPE_CHECKING:
-    from .download_queue import DownloadQueue
-
-    DOWNLOAD_RETRY_INTERVAL = 5
+DOWNLOAD_RETRY_INTERVAL = 5
 
 
-class DownloadQueueWorker:
-    def __init__(self, queue: "DownloadQueue"):
-        self.queue = queue
-        self.transfer_speed = TransferSpeed()
-        self.ct = CancellationToken()
-        self.task = None
-
-    def start(self):
-        self.task = asyncio.create_task(self._run())
-
-    def stop(self):
-        self.ct.cancel()
-
-    async def _check_pause(self):
-        while self.queue.status == TRANSFER_STATUS_PAUSED:
-            await asyncio.sleep(1)
+class DownloadQueueWorker(TransferQueueWorker):
 
     async def _run(self):
         logger.info("download worker starting")
@@ -41,11 +21,11 @@ class DownloadQueueWorker:
                 continue
 
             download = work_order.download
-            transfer_name = f"file {work_order.number} of {len(download.files)} of job {download.job_id}"
+            transfer_name = f"file {work_order.number} of {len(download.work_orders)} of job {download.job_id}"
 
             await self._check_pause()
 
-            while True:  # never give up downloading
+            while not self.ct.is_canceled():  # never give up downloading
                 try:
                     work_order.status_text = "Initiating Download"
                     logger.debug(f"start downloading {transfer_name}")
@@ -64,6 +44,7 @@ class DownloadQueueWorker:
                                 self.transfer_speed.update(response.num_bytes_downloaded - work_order.progress.done)
                                 work_order.progress.set_done(response.num_bytes_downloaded)
                     logger.debug(f"{transfer_name} downloaded successfully")
+                    work_order.status = TRANSFER_STATUS_SUCCESS
                     break
                 except Exception as ex:
                     msg = '\n'.join(format_exception(ex))
@@ -72,8 +53,10 @@ class DownloadQueueWorker:
                     work_order.status_text = msg
                     work_order.progress.set_done(0)
                     await asyncio.sleep(DOWNLOAD_RETRY_INTERVAL)
+                finally:
+                    if work_order.status != TRANSFER_STATUS_SUCCESS:
+                        work_order.status = TRANSFER_STATUS_FAILURE
 
-            work_order.status = TRANSFER_STATUS_SUCCESS
             download.update()
         logger.info("download worker exiting")
         self.queue.notify_worker_end(self)

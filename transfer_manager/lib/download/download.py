@@ -16,8 +16,6 @@ class Download(Transfer):
         self.local_dir_path = os.path.abspath(local_dir_path)
         self.job_id = job_id
 
-        self.files: List[DownloadWorkOrder] = []
-
     async def initialize(self):
         job = await Sarfis.get_job_details(self.user_data, self.job_id)
         render_passes = job['render_passes']
@@ -34,7 +32,7 @@ class Download(Transfer):
 
         def add_work_order(_url, _local_path, _rel_path):
             nonlocal number
-            self.files.append(DownloadWorkOrder(number, _url, _local_path, _rel_path, self))
+            self.work_orders.append(DownloadWorkOrder(number, _url, _local_path, _rel_path, self))
             number += 1
 
         output_dir = os.path.join(self.local_dir_path, str(self.job_id))
@@ -58,12 +56,12 @@ class Download(Transfer):
             local_path = os.path.join(output_dir, file_full_name)
             add_work_order(url, local_path, file_full_name)
 
-        self.progress.set_total(len(self.files))
+        self.progress.set_total(len(self.work_orders))
 
     def update(self):
         finished_files = 0
         running_or_created_files = 0
-        for f in self.files:
+        for f in self.work_orders:
             if f.status == TRANSFER_STATUS_SUCCESS:
                 finished_files += 1
             elif f.status in [TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED]:
@@ -94,5 +92,5 @@ class Download(Transfer):
         d = super().to_dict()
         d['local_dir_path'] = self.local_dir_path
         d['job_id'] = self.job_id
-        d['files'] = [i.small_dict() for i in self.files]
+        d['files'] = [i.small_dict() for i in self.work_orders]
         return d

@@ -1,13 +1,15 @@
 from .transfer import Transfer
-from .download.download_queue import DownloadQueue
+from .transfer_queue import TransferQueue
+from .download.download_queue_worker import DownloadQueueWorker
+from .download.download_work_order import DownloadWorkOrder
+
 from typing import Dict
 
 
 class TransferManager:
     def __init__(self):
         self.transfers: Dict[str, Transfer] = {}
-
-        self.download_queue = DownloadQueue()
+        self.download_queue = TransferQueue[DownloadWorkOrder]("download", DownloadQueueWorker)
         self.download_queue.start()
 
     def add(self, transfer: Transfer):

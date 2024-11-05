@@ -6,7 +6,7 @@ from ..lib.transfer import (
     TRANSFER_STATUS_FAILURE,
     TRANSFER_STATUS_RUNNING,
 )
-from ..lib.upload import Upload
+from ..lib.upload.upload import Upload
 from ..lib.download.download import Download
 from ..lib.json_dumps import json_dumps
 from ..lib.version import version
@@ -23,6 +23,7 @@ async def create_upload(request: Request):
         args["job_information"],
         args["metadata"],
     )
+    await upload.initialize()
     get_transfer_manager().add(upload)
     upload.start()
     return json(upload.id)
@@ -32,6 +33,7 @@ async def create_download(request: Request):
     args = request.json
     f = args.get('local_dir_path', None)
     if f is None:
+        # TODO: this is blocking the entire tm, put in a coroutine thread thing
         f = filedialpy.openDir()
 
     download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])

@@ -17,14 +17,16 @@ class TransferException(Exception):
 class Transfer(ABC):
     def __init__(self, transfer_id: str, transfer_type: str, metadata: dict):
         self.id = transfer_id
+        self.type = transfer_type
+        self.metadata = metadata
+
         self.progress = Progress()
         self.sub_progresses: List[Progress] = []
         self.status = TRANSFER_STATUS_CREATED
         self.status_text = ""
-        self.type = transfer_type
-        self.metadata = metadata
         self.created = time.time()
         self.finished_at = 0
+        self.work_orders = []
 
     @abstractmethod
     def start(self):
