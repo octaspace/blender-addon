@@ -33,13 +33,11 @@ async def create_download(request: Request):
     f = args.get('local_dir_path', None)
     if f is None:
         f = filedialpy.openDir()
-    logger.info("Download Path: ", f)
 
     download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])
     await download.initialize()
     get_transfer_manager().add(download)
     download.start()
-    logger.info("DOWNLOAD STARTED")
     return json(download.id)
 
 

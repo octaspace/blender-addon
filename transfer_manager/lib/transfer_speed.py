@@ -20,10 +20,11 @@ class TransferSpeed:
             end = self.entries[-1][0]
             diff = end - start
 
-            bytes_transfered = 0
-            for e in self.entries:
-                bytes_transfered += e[1]
+            if diff > 0:
+                bytes_transfered = 0
+                for e in self.entries:
+                    bytes_transfered += e[1]
 
-            self.value = bytes_transfered / diff
+                self.value = bytes_transfered / diff
         else:
             self.value = 0

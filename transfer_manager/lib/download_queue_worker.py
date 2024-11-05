@@ -32,6 +32,7 @@ class DownloadQueueWorker:
             await asyncio.sleep(1)
 
     async def _run(self):
+        logger.info("download worker starting")
         client = httpx.AsyncClient()
         while not self.ct.is_canceled():
             work_order: DownloadWorkOrder = await self.queue.get_next_work_order()
@@ -47,7 +48,7 @@ class DownloadQueueWorker:
             while True:  # never give up downloading
                 try:
                     work_order.status_text = "Initiating Download"
-                    logger.info(f"start downloading {transfer_name}")
+                    logger.debug(f"start downloading {transfer_name}")
                     async with client.stream("GET", work_order.url, headers={'authentication': download.user_data.api_token}) as response:
                         if not 200 <= response.status_code <= 299:
                             msg = f"download of {transfer_name} failed with response code {response.status_code}"
@@ -62,9 +63,11 @@ class DownloadQueueWorker:
                                 f.write(chunk)
                                 self.transfer_speed.update(response.num_bytes_downloaded - work_order.progress.done)
                                 work_order.progress.set_done(response.num_bytes_downloaded)
+                    logger.debug(f"{transfer_name} downloaded successfully")
                     break
                 except Exception as ex:
-                    msg = ex.args[0] if len(ex.args) > 0 else format_exception(ex)
+                    msg = '\n'.join(format_exception(ex))
+                    logger.warning(f"download {transfer_name} had exception {msg}")
                     work_order.history.append(msg)
                     work_order.status_text = msg
                     work_order.progress.set_done(0)
@@ -72,4 +75,5 @@ class DownloadQueueWorker:
 
             work_order.status = TRANSFER_STATUS_SUCCESS
             download.update()
+        logger.info("download worker exiting")
         self.queue.notify_worker_end(self)

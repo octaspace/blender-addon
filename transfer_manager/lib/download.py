@@ -68,7 +68,7 @@ class Download(Transfer):
         for f in self.files:
             if f.status == TRANSFER_STATUS_SUCCESS:
                 finished_files += 1
-            elif f.status_text in [TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED]:
+            elif f.status in [TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED]:
                 running_or_created_files += 1
         self.progress.set_done(finished_files)
 
