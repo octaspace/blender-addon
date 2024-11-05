@@ -30,7 +30,7 @@ class DownloadQueue:
         if self.status == TRANSFER_STATUS_PAUSED:
             return None
 
-        from .transfer_manager import get_transfer_manager
+        from ..transfer_manager import get_transfer_manager
 
         for k, v in get_transfer_manager().transfers.items():
             if v.type == "download":
