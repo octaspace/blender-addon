@@ -26,4 +26,11 @@ class TransferManager:
             self.remove(self.transfers[id])
 
 
-transfer_manager = TransferManager()
+_transfer_manager: TransferManager = None
+
+
+def get_transfer_manager() -> TransferManager:
+    global _transfer_manager
+    if _transfer_manager is None:
+        _transfer_manager = TransferManager()
+    return _transfer_manager

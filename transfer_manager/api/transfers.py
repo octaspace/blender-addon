@@ -1,6 +1,6 @@
 from sanic import Request
 from sanic.response import json
-from ..lib.transfer_manager import transfer_manager
+from ..lib.transfer_manager import get_transfer_manager
 from ..lib.transfer import (
     TRANSFER_STATUS_PAUSED,
     TRANSFER_STATUS_FAILURE,
@@ -23,7 +23,7 @@ async def create_upload(request: Request):
         args["job_information"],
         args["metadata"],
     )
-    transfer_manager.add(upload)
+    get_transfer_manager().add(upload)
     upload.start()
     return json(upload.id)
 
@@ -37,7 +37,7 @@ async def create_download(request: Request):
 
     download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])
     await download.initialize()
-    transfer_manager.add(download)
+    get_transfer_manager().add(download)
     download.start()
     logger.info("DOWNLOAD STARTED")
     return json(download.id)
@@ -45,20 +45,21 @@ async def create_download(request: Request):
 
 async def get_all_transfers(request: Request):
     response = []
-    for _, transfer in transfer_manager.transfers.items():
+    for _, transfer in get_transfer_manager().transfers.items():
         response.append(transfer.to_dict())
     return json(response, dumps=json_dumps)
 
 
 async def get_transfer(request: Request, id: str):
-    if id in transfer_manager.transfers:
-        return json(transfer_manager.transfers[id], dumps=json_dumps)
+    transfers = get_transfer_manager().transfers
+    if id in transfers:
+        return json(transfers[id], dumps=json_dumps)
     return json(None, status=404)
 
 
 async def delete_transfer(request: Request, id: str):
-    if id in transfer_manager.transfers:
-        transfer_manager.remove_by_id(id)
+    if id in get_transfer_manager().transfers:
+        get_transfer_manager().remove_by_id(id)
         return json(True)
     return json(False, status=404)
 
@@ -66,7 +67,7 @@ async def delete_transfer(request: Request, id: str):
 async def set_transfer_status(request: Request, id: str):
     args = request.json
     status = args["status"]
-    transfer = transfer_manager.get(id)
+    transfer = get_transfer_manager().get(id)
     if transfer is None:
         return json(False, status=404)
     if status == TRANSFER_STATUS_PAUSED:

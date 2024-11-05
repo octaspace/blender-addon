@@ -27,14 +27,20 @@ class DownloadQueue:
         worker.start()
 
     async def get_next_work_order(self) -> Optional[DownloadWorkOrder]:
-        from .transfer_manager import transfer_manager
+        if self.status == TRANSFER_STATUS_PAUSED:
+            return None
 
-        for k, v in transfer_manager.transfers.items():
+        from .transfer_manager import get_transfer_manager
+
+        for k, v in get_transfer_manager().transfers.items():
             if v.type == "download":
                 d: Download = v
-                if d.status in [TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED]:
+                if d.status == TRANSFER_STATUS_RUNNING:
                     for f in d.files:
                         if f.status == TRANSFER_STATUS_CREATED:
                             f.status = TRANSFER_STATUS_RUNNING
                             return f
         return None
+
+    def notify_worker_end(self, worker: DownloadQueueWorker):
+        self.workers.remove(worker)

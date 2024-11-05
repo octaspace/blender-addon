@@ -36,7 +36,7 @@ class Download(Transfer):
 
         def add_work_order(_url, _local_path, _rel_path):
             nonlocal number
-            self.files.append(DownloadWorkOrder(number, _url, _local_path, _rel_path, Progress(), self))
+            self.files.append(DownloadWorkOrder(number, _url, _local_path, _rel_path, self))
             number += 1
 
         output_dir = os.path.join(self.local_dir_path, str(self.job_id))
@@ -79,18 +79,6 @@ class Download(Transfer):
             self.status = TRANSFER_STATUS_FAILURE
             self.finished_at = time.time()
             self.status_text = "Some files could not be downloaded"
-
-    async def run(self):
-        try:
-            await self.initialize()
-            self.status = TRANSFER_STATUS_SUCCESS
-        except TransferException as ex:
-            self.status = TRANSFER_STATUS_FAILURE
-            self.status_text = ex.args[0]
-        except:
-            self.status = TRANSFER_STATUS_FAILURE
-            self.status_text = 'unknown exception'
-            logger.exception("exception during download")
 
     def start(self):
         if self.status in [TRANSFER_STATUS_CREATED, TRANSFER_STATUS_PAUSED]:

@@ -2,6 +2,7 @@ import asyncio
 import httpx
 from typing import TYPE_CHECKING
 from sanic.log import logger
+from traceback import format_exception
 from .transfer import TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_CREATED, TRANSFER_STATUS_SUCCESS
 from .download_work_order import DownloadWorkOrder
 from .cancellation_token import CancellationToken
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class DownloadQueueWorker:
-    def __init__(self, queue: DownloadQueue):
+    def __init__(self, queue: "DownloadQueue"):
         self.queue = queue
         self.transfer_speed = TransferSpeed()
         self.ct = CancellationToken()
@@ -63,9 +64,12 @@ class DownloadQueueWorker:
                                 work_order.progress.set_done(response.num_bytes_downloaded)
                     break
                 except Exception as ex:
-                    work_order.status_text = ex.args[0] if len(ex.args) > 0 else str(ex)
+                    msg = ex.args[0] if len(ex.args) > 0 else format_exception(ex)
+                    work_order.history.append(msg)
+                    work_order.status_text = msg
                     work_order.progress.set_done(0)
                     await asyncio.sleep(DOWNLOAD_RETRY_INTERVAL)
 
             work_order.status = TRANSFER_STATUS_SUCCESS
-        # TODO: do something to signal this worker has ended
+            download.update()
+        self.queue.notify_worker_end(self)
