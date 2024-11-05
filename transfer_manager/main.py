@@ -46,6 +46,7 @@ def main():
 
 if __name__ == "__main__":
     app = main()
-    app.run(host="0.0.0.0", port=7780, single_process=True, access_log=True, debug=True)
+    debug = True  # TODO: get from config somewhere
+    app.run(host="0.0.0.0", port=7780, single_process=True, access_log=debug, debug=debug)
 else:
     main()
