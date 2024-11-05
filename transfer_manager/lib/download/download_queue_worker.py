@@ -3,10 +3,10 @@ import httpx
 from typing import TYPE_CHECKING
 from sanic.log import logger
 from traceback import format_exception
-from .transfer import TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_CREATED, TRANSFER_STATUS_SUCCESS
+from ..transfer import TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS
 from .download_work_order import DownloadWorkOrder
-from .cancellation_token import CancellationToken
-from .transfer_speed import TransferSpeed
+from ..cancellation_token import CancellationToken
+from ..transfer_speed import TransferSpeed
 
 if TYPE_CHECKING:
     from .download_queue import DownloadQueue

@@ -1,5 +1,5 @@
 from .transfer import Transfer
-from .download_queue import DownloadQueue
+from .download.download_queue import DownloadQueue
 from typing import Dict
 
 

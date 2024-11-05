@@ -1,5 +1,5 @@
-from .progress import Progress
-from .transfer import TRANSFER_STATUS_CREATED
+from ..progress import Progress
+from ..transfer import TRANSFER_STATUS_CREATED
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:

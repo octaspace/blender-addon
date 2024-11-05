@@ -1,12 +1,10 @@
-from .transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
-from ..apis.sarfis import Sarfis
-from .util import IMAGE_TYPE_TO_EXTENSION, get_next_id
+from ..transfer import Transfer, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
+from ...apis.sarfis import Sarfis
+from ..util import IMAGE_TYPE_TO_EXTENSION, get_next_id
 from .download_work_order import DownloadWorkOrder
-from ..apis.r2_worker_shared import R2_WORKER_ENDPOINT
-from .progress import Progress
-from .user_data import UserData
+from ...apis.r2_worker_shared import R2_WORKER_ENDPOINT
+from ..user_data import UserData
 from typing import List
-from sanic.log import logger
 import os
 import time
 

@@ -1,7 +1,7 @@
 from .download import Download
 from .download_work_order import DownloadWorkOrder
 from .download_queue_worker import DownloadQueueWorker
-from .transfer import TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_CREATED, TRANSFER_STATUS_SUCCESS
+from ..transfer import TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_CREATED, TRANSFER_STATUS_SUCCESS
 from typing import Optional
 
 
