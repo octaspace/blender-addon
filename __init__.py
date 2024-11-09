@@ -54,11 +54,21 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
         name="Expand Debug Options", default=False
     )
 
+    octa_farm_config: bpy.props.StringProperty(
+        name="Octa Farm Config",
+        description="The configuration token retrieved from your render farm",
+        default="",
+    )
+
     def draw(self, context):
         layout = self.layout
 
         # register
         col = layout.column(align=True)
+
+        row = col.row()
+        row.prop(self, "octa_farm_config", text="Octa Farm Config")
+
         if not InstallDependenciesOperator.get_installed_packages_initialized():
             InstallDependenciesOperator.set_installed_packages()
 

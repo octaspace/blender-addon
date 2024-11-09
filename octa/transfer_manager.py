@@ -5,7 +5,12 @@ import threading
 import time
 import signal
 import bpy
-from .util import spawn_detached_process, UserData, unpack_octa_farm_config
+from .util import (
+    spawn_detached_process,
+    UserData,
+    unpack_octa_farm_config,
+    get_preferences,
+)
 from typing import TypedDict
 from bpy.props import BoolProperty
 from bpy.types import PropertyGroup
@@ -218,7 +223,7 @@ class OCTA_OT_OpenTransferManager(bpy.types.Operator):
 
     def execute(self, context):
         properties = context.scene.octa_properties
-        farm_config = unpack_octa_farm_config(properties.octa_farm_config)
+        farm_config = unpack_octa_farm_config(get_preferences().octa_farm_config)
         farm_host = farm_config.get("farm_host", "")
         transfer_manager_url = f"{farm_host}/transfers"
         webbrowser.open(transfer_manager_url)

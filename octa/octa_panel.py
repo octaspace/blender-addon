@@ -703,7 +703,6 @@ class OctaPanel(Panel):
         box.use_property_split = True
         box.use_property_decorate = False
         box.prop(properties, "job_name")
-        box.prop(properties, "octa_farm_config")
         box.prop(properties, "render_format")
 
         box = layout.box()
