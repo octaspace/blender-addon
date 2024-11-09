@@ -14,6 +14,8 @@ from .icon_manager import IconManager
 
 from ..octa.transfer_manager import transfer_manager_section
 
+from .install_dependencies import InstallDependenciesOperator
+
 # Global dictionary to store visibility states
 visibility_states = {}
 addons_to_send = {}
@@ -778,11 +780,23 @@ class OctaPanel(Panel):
             row.prop(properties, "debug_zip")
             debug_zip = properties.debug_zip
 
+        installed_correctly, missing_or_incorrect = (
+            InstallDependenciesOperator.check_dependencies_installed()
+        )
+        dependencies_installed = not missing_or_incorrect
+
+        row = col.row()
+        if not dependencies_installed:
+            col.label(text="Install dependencies in addon preferences", icon="ERROR")
+
         row = col.row()
         submit_op = row.operator(
             SubmitJobOperator.bl_idname,
             icon_value=icons["custom_icon"].icon_id,
         )
+
+        if not dependencies_installed:
+            row.enabled = False
 
         submit_op.debug_zip = debug_zip
 
