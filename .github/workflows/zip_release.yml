@@ -36,7 +36,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            /tmp/OctaRender.zip
+            /tmp/OctaRender_Extension.zip
+            /tmp/OctaRender_Addon.zip
             /tmp/OctaRender/blender_manifest.toml
             /tmp/OctaRender/extensions_index.json
         env:

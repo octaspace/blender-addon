@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from traceback import format_exc
 from .octa_properties import DownloadJobProperties
-from .util import unpack_octa_farm_config
+from .util import unpack_octa_farm_config, get_preferences
 from .transfer_manager import create_download, ensure_running
 from typing import Optional
 
@@ -40,7 +40,7 @@ class DownloadJobOperator(bpy.types.Operator):
             self.report({"ERROR"}, "Output path is not set")
             fail_validation = True
 
-        farm_config = props.octa_farm_config
+        farm_config = get_preferences().octa_farm_config
         # if len(farm_config) <= 0:
         #    self.report({"ERROR"}, "Farm config is not set")
         #    fail_validation = True
@@ -77,4 +77,4 @@ class DownloadJobOperator(bpy.types.Operator):
         # TODO: enable this once frontend caught up
         # webbrowser.open(f"{user_data['farm_host']}/transfers/{download_id}")
 
-        return {'FINISHED'}
+        return {"FINISHED"}

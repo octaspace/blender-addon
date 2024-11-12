@@ -92,11 +92,11 @@ class OctaProperties(PropertyGroup):
         name="Render Output Path", description="Render Output Path", default=""
     )
 
-    octa_farm_config: bpy.props.StringProperty(
-        name="Octa Farm Config",
-        description="The configuration token retrieved from your render farm",
-        default="",
-    )
+    # octa_farm_config: bpy.props.StringProperty(
+    #     name="Octa Farm Config",
+    #     description="The configuration token retrieved from your render farm",
+    #     default="",
+    # )
     upload_threads: bpy.props.IntProperty(
         name="Upload Threads",
         description="How many threads to use when uploading.",

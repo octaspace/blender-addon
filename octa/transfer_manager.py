@@ -5,11 +5,17 @@ import threading
 import time
 import signal
 import bpy
-from .util import spawn_detached_process, UserData, unpack_octa_farm_config
+from .util import (
+    spawn_detached_process,
+    UserData,
+    unpack_octa_farm_config,
+    get_preferences,
+)
 from typing import TypedDict
 from bpy.props import BoolProperty
 from bpy.types import PropertyGroup
 import webbrowser
+from .install_dependencies import InstallDependenciesOperator
 
 TM_HOST = "http://127.0.0.1:7780"
 
@@ -217,7 +223,7 @@ class OCTA_OT_OpenTransferManager(bpy.types.Operator):
 
     def execute(self, context):
         properties = context.scene.octa_properties
-        farm_config = unpack_octa_farm_config(properties.octa_farm_config)
+        farm_config = unpack_octa_farm_config(get_preferences().octa_farm_config)
         farm_host = farm_config.get("farm_host", "")
         transfer_manager_url = f"{farm_host}/transfers"
         webbrowser.open(transfer_manager_url)
@@ -225,23 +231,33 @@ class OCTA_OT_OpenTransferManager(bpy.types.Operator):
 
 
 def transfer_manager_section(layout, properties):
+    installed_correctly, missing_or_incorrect = (
+        InstallDependenciesOperator.check_dependencies_installed()
+    )
+    dependencies_installed = not missing_or_incorrect
+
     box = layout.box()
     if box is not None:
+        row = box.row()
+        if not dependencies_installed:
+            row.label(text="Install dependencies in addon preferences", icon="ERROR")
+
+        col = box.column()
+
+        col.enabled = dependencies_installed
+
         is_running = is_reachable()
 
-        # Status label on top
-        box.label(
+        col.label(
             text=f"Transfer Manager {'Running' if is_running else 'Stopped'}",
             icon="KEYTYPE_JITTER_VEC" if is_running else "KEYTYPE_EXTREME_VEC",
         )
 
-        # Row with Start/Stop button and Open Browser button as an icon at the end
-        row = box.row()
+        row = col.row()
         row_left = row.row()
         row_right = row.row()
         row_right.alignment = "RIGHT"
 
-        # Start/Stop button
         if not OCTA_OT_TransferManager._running:
             if is_running:
                 op = row_left.operator(
@@ -254,7 +270,6 @@ def transfer_manager_section(layout, properties):
                 )
                 op.state = True
         else:
-            # Display appropriate text based on the current action
             current_action = OCTA_OT_TransferManager._current_action
             if current_action == "starting":
                 text = "Starting Transfer Manager"
@@ -269,7 +284,6 @@ def transfer_manager_section(layout, properties):
                 text=text,
             )
 
-        # Open Browser button as an icon
         row_right.operator(
             "octa.open_transfer_manager",
             icon="URL",

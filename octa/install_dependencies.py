@@ -46,7 +46,23 @@ class InstallDependenciesOperator(bpy.types.Operator):
     @classmethod
     def check_dependencies_installed(cls):
         """Check which packages from requirements.txt are installed and which are missing."""
-        installed_packages = cls.get_installed_packages()
+        try:
+            from importlib.metadata import distributions
+        except ImportError:
+            print(
+                "importlib.metadata is not available. Cannot check installed packages."
+            )
+            return [], []
+
+        def normalize_package_name(name):
+            return name.lower().replace("-", "_").replace(".", "_")
+
+        # Get installed packages and versions
+        installed_packages = {}
+        for dist in distributions():
+            package_name = normalize_package_name(dist.metadata["Name"])
+            installed_packages[package_name] = dist.version
+
         requirements = cls.read_requirements(cls.requirements_path)
 
         installed_correctly = []
@@ -54,20 +70,26 @@ class InstallDependenciesOperator(bpy.types.Operator):
 
         for requirement in requirements:
             package_name, _, required_version = requirement.partition("==")
-            installed_version = installed_packages.get(package_name)
+            package_name = package_name.strip()
+            normalized_name = normalize_package_name(package_name)
 
-            if required_version:
-                if installed_version == required_version:
-                    installed_correctly.append(f"{package_name}=={installed_version}")
+            installed_version = installed_packages.get(normalized_name)
+
+            if installed_version:
+                if required_version:
+                    if installed_version == required_version:
+                        installed_correctly.append(
+                            f"{package_name}=={installed_version}"
+                        )
+                    else:
+                        missing_or_incorrect.append(
+                            f"{package_name}=={required_version} "
+                            f"(found version {installed_version})"
+                        )
                 else:
-                    missing_or_incorrect.append(
-                        f"{package_name}=={required_version} (found version {installed_version if installed_version else 'none'})"
-                    )
-            else:
-                if installed_version:
                     installed_correctly.append(package_name)
-                else:
-                    missing_or_incorrect.append(package_name)
+            else:
+                missing_or_incorrect.append(package_name)
 
         if missing_or_incorrect:
             print("Missing or Incorrectly Versioned Packages:", missing_or_incorrect)

@@ -11,7 +11,7 @@ from ..blender_asset_tracer.pack import zipped
 from ..blender_asset_tracer.blendfile import close_all_cached
 from .octa_properties import SubmitJobProperties
 from .transfer_manager import create_upload, ensure_running
-from .util import get_all_render_passes, unpack_octa_farm_config
+from .util import get_all_render_passes, unpack_octa_farm_config, get_preferences
 import addon_utils
 import json
 import zipfile
@@ -313,7 +313,7 @@ class SubmitJobOperator(Operator):
             job_properties.upload_threads = properties.upload_threads
             job_properties.batch_size = properties.batch_size
             job_properties.blender_version = properties.blender_version
-            job_properties.octa_farm_config = properties.octa_farm_config
+            job_properties.octa_farm_config = get_preferences().octa_farm_config
 
         except:
             raise
