@@ -208,5 +208,5 @@ class Upload(Transfer):
         d['local_file_path'] = self.local_file_path
         d['job_id'] = self.job_id
         d['job_info'] = self.job_info
-        d['etags'] = self.etags
+        d['parts'] = [i.small_dict() for i in self.work_orders]
         return d

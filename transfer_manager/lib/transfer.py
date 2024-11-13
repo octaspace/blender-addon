@@ -21,7 +21,6 @@ class Transfer(ABC):
         self.metadata = metadata
 
         self.progress = Progress()
-        self.sub_progresses: List[Progress] = []
         self.status = TRANSFER_STATUS_CREATED
         self.status_text = ""
         self.created = time.time()
@@ -45,11 +44,10 @@ class Transfer(ABC):
             "id": self.id,
             "type": self.type,
             "progress": self.progress,
-            "sub_progresses": self.sub_progresses,
             "status": self.status,
             "status_text": self.status_text,
-            "metadata": self.metadata,
             "created": self.created,
-            "finished_at": self.finished_at,
             "age": time.time() - self.created,
+            "finished_at": self.finished_at,
+            "metadata": self.metadata,
         }
