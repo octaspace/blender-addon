@@ -1,20 +1,17 @@
-from ..transfer import Transfer, TransferException, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
+from ..transfer import Transfer, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
 from ...apis.sarfis import Sarfis
-from ..util import get_next_id, get_file_md5
+from ..util import get_next_id, get_file_md5, async_with_retries
 from ..sarfis_operations import get_operations
 from ..user_data import UserData
 from typing import TypedDict, BinaryIO
 from ..version import version
 from ...apis.r2_worker import AsyncR2Worker
-from ..progress import Progress
-from traceback import print_exc
+from traceback import format_exc
 from .upload_work_order import UploadWorkOrder
-from dataclasses import dataclass
 import asyncio
 import os
 import math
 from sanic.log import logger
-import sanic
 import webbrowser
 import shutil
 import time
@@ -50,8 +47,11 @@ class Upload(Transfer):
         self.file_hash: str = None
         self.file_size = 0
         self._upload_id = None
+        self._upload_id_lock = asyncio.Lock()
         self.url = ""
         self.etags = []
+
+        self.transfer_ended_called = False
 
     async def initialize(self):
         self.file_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
@@ -77,9 +77,10 @@ class Upload(Transfer):
         return self._file
 
     async def get_upload_id(self):
-        if self._upload_id is None:
-            data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)  # TODO: actually do this lazy
-            self._upload_id = data['uploadId']
+        async with self._upload_id_lock:
+            if self._upload_id is None:
+                data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)
+                self._upload_id = data['uploadId']
         return self._upload_id
 
     async def init_single(self):
@@ -95,43 +96,48 @@ class Upload(Transfer):
         last_part_offset = (part_count - 1) * UPLOAD_PART_SIZE
         self.work_orders.append(UploadWorkOrder(last_part_offset, self.file_size - last_part_offset, part_count, self, False))
 
-    async def update(self):
-        finished_files = 0
-        running_or_created_files = 0
-        for f in self.work_orders:
-            if f.status == TRANSFER_STATUS_SUCCESS:
-                finished_files += 1
-            elif f.status in [TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED]:
-                running_or_created_files += 1
-        self.progress.set_done(finished_files)
+    async def _on_transfer_ended(self, transfer_success):
+        self.get_file().close()
+        self._file = None
+        upload_id = await self.get_upload_id()
+        if transfer_success:
+            try:
+                await async_with_retries(AsyncR2Worker.complete_multipart_upload, self.user_data, self.url, upload_id, self.etags, retries=20)
+            except Exception as ex:
+                self.status = TRANSFER_STATUS_FAILURE
+                self.status_text = f"Could not complete upload due to cloudflare error"
+                logger.error(f"could not complete upload with etags {self.etags}: {ex.args[0]}")
 
-        if self.progress.done >= self.progress.total:
-            self.status = TRANSFER_STATUS_SUCCESS
-            self.finished_at = time.time()
-        elif running_or_created_files == 0:  # if not all done, but no running or created files left, download is finished and gets status failed
-            self.status = TRANSFER_STATUS_FAILURE
-            self.finished_at = time.time()
-            self.status_text = "Some files could not be downloaded"
-
-
-        # TODO: fill these 2 values by analyzing parts
-        transfer_success = True
-        transfer_ended = True
-        if transfer_ended:
-            self.get_file().close()
-            self._file = None
-            upload_id = await  self.get_upload_id()
-            if transfer_success:
-                await AsyncR2Worker.complete_multipart_upload(self.user_data, self.url, upload_id, self.etags)
+            if self.status != TRANSFER_STATUS_FAILURE:
                 await self.run_job_create()
                 await self.run_cleanup()
                 self.status = TRANSFER_STATUS_SUCCESS
-            else:
-                await AsyncR2Worker.abort_multipart_upload(self.user_data, self.url, upload_id)
-                await self.run_cleanup()
-                self.status = TRANSFER_STATUS_FAILURE
-                self.status_text = "Upload failed"
-            self.finished_at = time.time()
+        else:
+            await AsyncR2Worker.abort_multipart_upload(self.user_data, self.url, upload_id)
+            await self.run_cleanup()
+            self.status = TRANSFER_STATUS_FAILURE
+            self.status_text = "Some parts could not be uploaded"
+        self.finished_at = time.time()
+
+    async def update(self):
+        successful_parts = 0
+        running_or_created_parts = 0
+        for wo in self.work_orders:
+            if wo.status == TRANSFER_STATUS_SUCCESS:
+                successful_parts += 1
+            elif wo.status in [TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED]:
+                running_or_created_parts += 1
+
+        transfer_success = successful_parts >= len(self.work_orders)
+        transfer_ended = running_or_created_parts == 0
+
+        logger.debug(f"transfer success {transfer_success}")
+        logger.debug(f"transfer ended {transfer_ended}")
+
+        # this is done this way to prevent a race condition when 2 workers call update at the same time
+        if transfer_ended and not self.transfer_ended_called:
+            self.transfer_ended_called = True
+            await self._on_transfer_ended(transfer_success)
 
     async def run_job_create(self):
         frame_end = self.job_info['frame_end']
@@ -185,9 +191,22 @@ class Upload(Transfer):
         dir_to_delete = os.path.dirname(self.local_file_path)
         shutil.rmtree(dir_to_delete, ignore_errors=True)
 
+    def start(self):
+        if self.status in [TRANSFER_STATUS_CREATED, TRANSFER_STATUS_PAUSED]:
+            self.status = TRANSFER_STATUS_RUNNING
+
+    def stop(self):
+        if self.status != TRANSFER_STATUS_CREATED:
+            self.status = TRANSFER_STATUS_FAILURE
+
+    def pause(self):
+        if self.status == TRANSFER_STATUS_RUNNING:
+            self.status = TRANSFER_STATUS_PAUSED
+
     def to_dict(self):
         d = super().to_dict()
         d['local_file_path'] = self.local_file_path
         d['job_id'] = self.job_id
         d['job_info'] = self.job_info
+        d['etags'] = self.etags
         return d

@@ -1,5 +1,6 @@
 from sanic import Request
 from ..lib.user_data import UserData
+from sanic.log import logger
 
 
 async def user_data(request: Request):

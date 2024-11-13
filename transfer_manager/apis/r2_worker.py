@@ -2,6 +2,7 @@ import httpx
 from httpx._types import RequestContent
 from ..lib.user_data import UserData
 from .r2_worker_shared import R2UploadedPart, R2UploadInfo, get_url, ensure_ok
+from sanic.log import logger
 
 
 class AsyncR2Worker:
@@ -17,9 +18,9 @@ class AsyncR2Worker:
     async def request(cls, user_data: UserData, method: str, url: str, **kwargs):
         # TODO: retries here would break progress update
         client = cls.get_client()
-        response = await client.request(method, url, headers={
-            'authentication': user_data.api_token
-        }, **kwargs)
+        headers = {'authentication': user_data.api_token}
+        # logger.debug(f"r2 request to {method} {url} with headers {headers} and kwargs {kwargs}")
+        response = await client.request(method, url, headers=headers, **kwargs)
         return ensure_ok(response)
 
     @classmethod
@@ -32,6 +33,7 @@ class AsyncR2Worker:
 
     @classmethod
     async def complete_multipart_upload(cls, user_data: UserData, path: str, upload_id: str, parts: list[R2UploadedPart]):
+        parts.sort(key=lambda x: x['partNumber'])
         url = get_url(path)
         await cls.request(user_data, 'POST', url, params={
             "action": "mpu-complete",

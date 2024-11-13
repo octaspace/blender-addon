@@ -1,5 +1,6 @@
 import uuid
 import hashlib
+import asyncio
 
 
 def get_next_id() -> str:
@@ -30,3 +31,15 @@ IMAGE_TYPE_TO_EXTENSION = {
     'TIFF': 'tif',
     'WEBP': 'webp',
 }
+
+
+async def async_with_retries(callable, *args, retries=3, retry_wait_time=3, **kwargs):
+    tries = 1
+    while True:
+        try:
+            return await callable(*args, **kwargs)
+        except:
+            if tries >= retries:
+                raise
+            await asyncio.sleep(retry_wait_time)
+            tries += 1

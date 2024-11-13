@@ -2,6 +2,8 @@ from .transfer import Transfer
 from .transfer_queue import TransferQueue
 from .download.download_queue_worker import DownloadQueueWorker
 from .download.download_work_order import DownloadWorkOrder
+from .upload.upload_queue_worker import UploadQueueWorker
+from .upload.upload_work_order import UploadWorkOrder
 
 from typing import Dict
 
@@ -11,6 +13,8 @@ class TransferManager:
         self.transfers: Dict[str, Transfer] = {}
         self.download_queue = TransferQueue[DownloadWorkOrder]("download", DownloadQueueWorker)
         self.download_queue.start()
+        self.upload_queue = TransferQueue[UploadWorkOrder]("upload", UploadQueueWorker)
+        self.upload_queue.start()
 
     def add(self, transfer: Transfer):
         self.transfers[transfer.id] = transfer
