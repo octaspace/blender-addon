@@ -22,6 +22,7 @@ class UploadQueueWorker(TransferQueueWorker):
             current_bytes[0] += chunk_len
             work_order_progress.increase_done(chunk_len)
             upload_progress.increase_done(chunk_len)
+            self.transfer_speed.update(chunk_len)
 
     async def _single(self, work_order: UploadWorkOrder):
         work_order.progress.set_total(work_order.size)

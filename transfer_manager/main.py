@@ -12,9 +12,9 @@ def main():
         get_transfer,
         delete_transfer,
         set_transfer_status,
-        transfer_manager_info,
     )
-    from .api.other import logs
+    from .api.other import logs, transfer_manager_info
+    from .api.queues import queues
 
     try:
         # change title of console window in windows
@@ -40,6 +40,7 @@ def main():
     bp_api.add_route(set_transfer_status, "/transfers/<id:str>/status", methods=("PUT",))
     bp_api.add_route(transfer_manager_info, "/transfer_manager_info", methods=("GET",))
     bp_api.add_route(logs, "/logs", methods=("GET",))
+    bp_api.add_route(queues, "/queues", methods=("GET",))
 
     app.blueprint(bp_api)
     app.add_route(index, "/", methods=("GET",))

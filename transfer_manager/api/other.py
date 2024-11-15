@@ -1,6 +1,7 @@
 import tempfile
 import os
-from sanic.response import text
+from sanic.response import text, json
+from ..lib.version import version
 
 
 async def logs(_):
@@ -11,3 +12,11 @@ async def logs(_):
     else:
         data = ""
     return text(data)
+
+
+async def transfer_manager_info(request):
+    return json({
+        "service": "transfer_manager",
+        "version": version,
+        "process_id": os.getpid()
+    })

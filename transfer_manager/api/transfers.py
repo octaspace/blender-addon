@@ -81,9 +81,3 @@ async def set_transfer_status(request: Request, id: str):
     return json(True)
 
 
-async def transfer_manager_info(request):
-    return json({
-        "service": "transfer_manager",
-        "version": version,
-        "process_id": os.getpid()
-    })
