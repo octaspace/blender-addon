@@ -220,7 +220,7 @@ class InstallDependenciesOperator(bpy.types.Operator):
 
         ensurepip.bootstrap()
         python_exe = sys.executable
-        site_packages = site.getsitepackages()
+        site_packages = site.getsitepackages()[0]
         total_requirements = len(requirements)
 
         async def install_async():
