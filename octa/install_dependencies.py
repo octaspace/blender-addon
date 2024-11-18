@@ -8,6 +8,7 @@ from threading import Thread
 import re
 import shutil
 import functools
+import site
 
 
 def redraw_preferences():
@@ -219,7 +220,7 @@ class InstallDependenciesOperator(bpy.types.Operator):
 
         ensurepip.bootstrap()
         python_exe = sys.executable
-        site_packages = os.path.join(os.path.dirname(python_exe), "Lib", "site-packages")
+        site_packages = site.getsitepackages()
         total_requirements = len(requirements)
 
         async def install_async():
