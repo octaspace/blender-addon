@@ -40,6 +40,8 @@ from .octa.octa_panel import (
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
 
+from .octa.verify_key import VerifyKeyOperator
+
 from .octa.util import section
 
 icons_dict = None
@@ -60,6 +62,8 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
         default="",
     )
 
+    logged_in: bpy.props.BoolProperty(name="Logged In", default=False)
+
     def draw(self, context):
         layout = self.layout
 
@@ -67,7 +71,11 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
         col = layout.column(align=True)
 
         row = col.row()
-        row.prop(self, "octa_farm_config", text="Octa Farm Config")
+        row.prop(self, "octa_farm_config", text="Octa Farm Config Key")
+        row.operator(VerifyKeyOperator.bl_idname, icon="KEYINGSET", text="Verify Key")
+
+        row = col.row()
+        row.label(text="Logged In" if self.logged_in else "Not Logged In", icon="INFO")
 
         if not InstallDependenciesOperator.get_installed_packages_initialized():
             InstallDependenciesOperator.set_installed_packages()
@@ -141,6 +149,7 @@ classes = (
     OCTA_OT_OpenTransferManager,
     ZIPAddonsOperator,
     ToggleAddonSelectionOperator,
+    VerifyKeyOperator,
 )
 
 
