@@ -23,3 +23,15 @@ class VerifyKeyOperator(bpy.types.Operator):
             self.report({"INFO"}, "Key verified")
             prefs.logged_in = True
             return {"FINISHED"}
+
+
+class LogOutOperator(bpy.types.Operator):
+    bl_idname = "exporter.logout"
+    bl_label = "Logout"
+    bl_description = "Logout"
+
+    def execute(self, context):
+        prefs = get_preferences()
+        prefs.logged_in = False
+        prefs.octa_farm_config = ""
+        return {"FINISHED"}

@@ -92,10 +92,10 @@ class InstallDependenciesOperator(bpy.types.Operator):
             else:
                 missing_or_incorrect.append(package_name)
 
-        if missing_or_incorrect:
-            print("Missing or Incorrectly Versioned Packages:", missing_or_incorrect)
-        if installed_correctly:
-            print("Correctly Installed Packages:", installed_correctly)
+        # if missing_or_incorrect:
+        #     print("Missing or Incorrectly Versioned Packages:", missing_or_incorrect)
+        # if installed_correctly:
+        #     print("Correctly Installed Packages:", installed_correctly)
 
         return installed_correctly, missing_or_incorrect
 
@@ -258,7 +258,15 @@ class InstallDependenciesOperator(bpy.types.Operator):
                 downloaded_wheels.extend(wheel_files)
 
             for index, wheel in enumerate(downloaded_wheels, start=1):
-                install_cmd = [python_exe, "-m", "pip", "install", wheel, "-t", site_packages]
+                install_cmd = [
+                    python_exe,
+                    "-m",
+                    "pip",
+                    "install",
+                    wheel,
+                    "-t",
+                    site_packages,
+                ]
                 await loop.run_in_executor(None, subprocess.run, install_cmd)
                 print(f"Installed {wheel} ({index}/{len(downloaded_wheels)})")
 

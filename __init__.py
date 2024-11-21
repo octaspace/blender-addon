@@ -40,7 +40,7 @@ from .octa.octa_panel import (
 from .octa.submit_job_operator import SubmitJobOperator
 from .octa.download_job_operator import DownloadJobOperator
 
-from .octa.verify_key import VerifyKeyOperator
+from .octa.verify_key import VerifyKeyOperator, LogOutOperator
 
 from .octa.util import section
 
@@ -67,15 +67,24 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
 
-        # register
-        col = layout.column(align=True)
+        row = layout.row()
 
-        row = col.row()
-        row.prop(self, "octa_farm_config", text="Octa Farm Config Key")
-        row.operator(VerifyKeyOperator.bl_idname, icon="KEYINGSET", text="Verify Key")
+        if not self.logged_in:
+            row.label(text="Octa Farm Config Key:")
 
-        row = col.row()
-        row.label(text="Logged In" if self.logged_in else "Not Logged In", icon="INFO")
+            row = layout.row(align=True)
+            col = row.column()
+            col.scale_x = 4
+            col.prop(self, "octa_farm_config", text="")
+
+            # Make the button slimmer
+            col = row.column()
+            col.scale_x = 2
+            col.operator(
+                VerifyKeyOperator.bl_idname, icon="KEYINGSET", text="Verify Key"
+            )
+        else:
+            row.operator(LogOutOperator.bl_idname, icon="KEY_DEHLT", text="Logout")
 
         if not InstallDependenciesOperator.get_installed_packages_initialized():
             InstallDependenciesOperator.set_installed_packages()
@@ -85,7 +94,7 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
         is_installing = InstallDependenciesOperator.get_running()
 
         if is_installing:
-            row = col.row()
+            row = layout.row()
             row.label(icon=InstallDependenciesOperator.get_progress_icon(), text="")
             row.progress(
                 text=InstallDependenciesOperator.get_progress_name(),
@@ -93,11 +102,11 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
             )
 
         if len(missing_packages) > 0:
-            row = col.row()
+            row = layout.row()
             if not is_installing:
                 row.label(text="Missing dependencies", icon="ERROR")
 
-            row = col.row()
+            row = layout.row()
             install_op = row.operator(
                 InstallDependenciesOperator.bl_idname,
                 icon="IMPORT",
@@ -107,11 +116,11 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
             if not is_installing:
                 row.enabled = True
         else:
-            row = col.row()
+            row = layout.row()
             if not is_installing:
                 row.label(text="All dependencies are installed", icon="SOLO_ON")
 
-            row = col.row()
+            row = layout.row()
             uninstall_op = row.operator(
                 InstallDependenciesOperator.bl_idname,
                 icon="TRASH",
@@ -122,7 +131,7 @@ class Octa_Addon_Preferences(bpy.types.AddonPreferences):
             if not is_installing:
                 row.enabled = True
 
-        row = col.row()
+        row = layout.row()
 
         debug_section = section(row, self, "expand_debug_options", "Advanced Options")
 
@@ -150,6 +159,7 @@ classes = (
     ZIPAddonsOperator,
     ToggleAddonSelectionOperator,
     VerifyKeyOperator,
+    LogOutOperator,
 )
 
 
