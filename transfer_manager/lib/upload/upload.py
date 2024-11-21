@@ -16,7 +16,7 @@ import webbrowser
 import shutil
 import time
 
-UPLOAD_PART_SIZE = 25 * 1024 * 1024  # 25 MB
+UPLOAD_PART_SIZE = 6 * 1024 * 1024  # 6 MB
 
 
 class JobInformation(TypedDict):
