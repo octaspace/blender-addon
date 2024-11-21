@@ -3,6 +3,7 @@ from .transfer_queue_worker import TransferQueueWorker
 from typing import Optional, TypeVar, Generic, List
 
 T_WorkOrder = TypeVar("T_WorkOrder")
+MAX_WORKERS = 6
 
 
 class TransferQueue(Generic[T_WorkOrder]):
@@ -14,7 +15,7 @@ class TransferQueue(Generic[T_WorkOrder]):
         self.workers: List[TransferQueueWorker] = []
 
     def start(self):
-        for _ in range(4):
+        for _ in range(1):
             self._add_worker()
 
     def pause(self):
@@ -24,9 +25,10 @@ class TransferQueue(Generic[T_WorkOrder]):
         self.status = TRANSFER_STATUS_RUNNING
 
     def _add_worker(self):
-        worker = self.worker_class(self)
-        self.workers.append(worker)
-        worker.start()
+        if len(self.workers) < MAX_WORKERS:
+            worker = self.worker_class(self)
+            self.workers.append(worker)
+            worker.start()
 
     async def get_next_work_order(self) -> Optional[T_WorkOrder]:
         if self.status == TRANSFER_STATUS_PAUSED:
@@ -43,5 +45,17 @@ class TransferQueue(Generic[T_WorkOrder]):
                             return wo
         return None
 
-    def notify_worker_end(self, worker: TransferQueueWorker):
-        self.workers.remove(worker)
+    def notify_workorder_retry(self, sender):
+        if len(self.workers) > 1:
+            for i in range(len(self.workers)):
+                w = self.workers[i]
+                if w != sender:
+                    self.workers.remove(w)
+                    w.stop()
+                    return
+
+    def notify_workorder_success(self, sender):
+        self._add_worker()
+
+    def notify_worker_end(self, sender: TransferQueueWorker):
+        self.workers.remove(sender)

@@ -63,7 +63,6 @@ class Upload(Transfer):
         self.progress.set_total(self.file_size)
 
         self.url = f"{self.job_id}/input/package.zip"
-        # logger.info(f"uploading to {self.url}")
 
         if self.file_size < UPLOAD_PART_SIZE:
             # r2 does not support multipart uploads for files < 5MB, lets not use multipart for files under the part size
@@ -107,6 +106,7 @@ class Upload(Transfer):
                 self.status = TRANSFER_STATUS_FAILURE
                 self.status_text = f"Could not complete upload due to cloudflare error"
                 logger.error(f"could not complete upload with etags {self.etags}: {ex.args[0]}")
+                return
 
             if self.status != TRANSFER_STATUS_FAILURE:
                 await self.run_job_create()
@@ -117,7 +117,6 @@ class Upload(Transfer):
             await self.run_cleanup()
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = "Some parts could not be uploaded"
-        self.finished_at = time.time()
 
     async def update(self):
         successful_parts = 0
@@ -138,6 +137,7 @@ class Upload(Transfer):
         if transfer_ended and not self.transfer_ended_called:
             self.transfer_ended_called = True
             await self._on_transfer_ended(transfer_success)
+            self.finished_at = time.time()
 
     async def run_job_create(self):
         frame_end = self.job_info['frame_end']

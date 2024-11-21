@@ -1,5 +1,5 @@
 from ..transfer_queue_worker import TransferQueueWorker
-from ..transfer import TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE
+from ..transfer import TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_CREATED
 from ..progress import Progress
 from .upload_work_order import UploadWorkOrder
 from ...apis.r2_worker import AsyncR2Worker
@@ -39,6 +39,10 @@ class UploadQueueWorker(TransferQueueWorker):
                 work_order.status = TRANSFER_STATUS_SUCCESS
                 break
             except:
+                exc = format_exc()
+                self.queue.notify_workorder_retry(self)
+                logger.debug(exc)
+                work_order.history.append(exc)
                 upload_progress.decrease_done(current_bytes[0])
                 work_order.progress.set_done(0)
 
@@ -69,15 +73,18 @@ class UploadQueueWorker(TransferQueueWorker):
                 upload.etags.append(result)
                 break
             except:
-                logger.debug(format_exc())
+                exc = format_exc()
+                self.queue.notify_workorder_retry(self)
+                logger.debug(exc)
+                work_order.history.append(exc)
                 work_order.progress.set_done(0)
                 await asyncio.sleep(3)
 
     async def _run(self):
         logger.info("upload worker starting")
 
+        work_order: UploadWorkOrder = None
         while not self.ct.is_canceled():
-            work_order: UploadWorkOrder = None
             try:
                 work_order = await self.queue.get_next_work_order()
 
@@ -90,14 +97,21 @@ class UploadQueueWorker(TransferQueueWorker):
                 else:
                     await self._multi(work_order)
                 await work_order.upload.update()
+                self.queue.notify_workorder_success(self)
             except Exception as ex:
                 if work_order is not None:
+                    work_order.history.append(format_exc())
                     work_order.status_text = f"Exception: {ex.args[0]}"
                     work_order.status = TRANSFER_STATUS_FAILURE
                     try:
                         await work_order.upload.update()
                     except:
+                        work_order.history.append(format_exc())
                         logger.exception("exception when calling upload.update()")
                 logger.exception("exception from within upload worker", exc_info=ex)
+
+        if work_order is not None:
+            if work_order.status == TRANSFER_STATUS_RUNNING:
+                work_order.status = TRANSFER_STATUS_CREATED
 
         logger.info("upload worker exiting")
