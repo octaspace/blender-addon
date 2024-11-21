@@ -13,13 +13,17 @@ from ..lib.version import version
 from sanic.log import logger
 import filedialpy
 import os
+import asyncio
 
 
 async def create_upload(request: Request):
     args = request.json
+    local_file_path = args["local_file_path"]
+    if not os.path.exists(local_file_path):
+        return json("file doesnt exist", status=400)
     upload = Upload(
         request.ctx.user_data,
-        args["local_file_path"],
+        local_file_path,
         args["job_information"],
         args["metadata"],
     )
@@ -31,12 +35,14 @@ async def create_upload(request: Request):
 
 async def create_download(request: Request):
     args = request.json
-    f = args.get('local_dir_path', None)
-    if f is None:
-        # TODO: this is blocking the entire tm, put in a coroutine thread thing
-        f = filedialpy.openDir()
+    local_dir_path = args.get('local_dir_path', None)
+    if local_dir_path is None:
+        def ask_for_dir():
+            return filedialpy.openDir(title="Choose Download Directory")
 
-    download = Download(request.ctx.user_data, f, args["job_id"], args["metadata"])
+        local_dir_path = await asyncio.to_thread(ask_for_dir)
+
+    download = Download(request.ctx.user_data, local_dir_path, args["job_id"], args["metadata"])
     await download.initialize()
     get_transfer_manager().add(download)
     download.start()
@@ -79,5 +85,3 @@ async def set_transfer_status(request: Request, id: str):
     else:
         return json(f"unsupported status {status}", status=400)
     return json(True)
-
-
