@@ -8,6 +8,7 @@ from threading import Thread
 import re
 import shutil
 import functools
+import site
 
 
 def redraw_preferences():
@@ -219,6 +220,7 @@ class InstallDependenciesOperator(bpy.types.Operator):
 
         ensurepip.bootstrap()
         python_exe = sys.executable
+        site_packages = site.getsitepackages()[0]
         total_requirements = len(requirements)
 
         async def install_async():
@@ -256,7 +258,7 @@ class InstallDependenciesOperator(bpy.types.Operator):
                 downloaded_wheels.extend(wheel_files)
 
             for index, wheel in enumerate(downloaded_wheels, start=1):
-                install_cmd = [python_exe, "-m", "pip", "install", wheel]
+                install_cmd = [python_exe, "-m", "pip", "install", wheel, "-t", site_packages]
                 await loop.run_in_executor(None, subprocess.run, install_cmd)
                 print(f"Installed {wheel} ({index}/{len(downloaded_wheels)})")
 

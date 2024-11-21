@@ -138,8 +138,12 @@ class OctaProperties(PropertyGroup):
     blender_version: bpy.props.EnumProperty(
         name="Blender Version",
         description="Blender Version",
-        items=[("blender41", "4.1", "4.1"), ("blender42", "4.2", "4.2")],
-        default="blender41",
+        items=[
+            ("blender41", "4.1", "4.1"),
+            ("blender42", "4.2", "4.2"),
+            ("blender43", "4.3", "4.3"),
+        ],
+        default="blender42",
     )
 
     max_thumbnail_size: bpy.props.EnumProperty(

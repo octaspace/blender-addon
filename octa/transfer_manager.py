@@ -40,6 +40,12 @@ def get_url(path: str) -> str:
     return f"{TM_HOST}/api{path}"
 
 
+def verify_key(user_data: UserData) -> bool:
+    response = requests.get(get_url("/"), headers=user_data)
+    print(response.json())
+    return response.status_code == 200
+
+
 def create_upload(
     local_file_path: str,
     job_information: JobInformation,
