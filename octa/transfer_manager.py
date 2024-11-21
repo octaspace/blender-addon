@@ -41,7 +41,14 @@ def get_url(path: str) -> str:
 
 
 def verify_key(user_data: UserData) -> bool:
-    response = requests.get(get_url("/"), headers=user_data)
+    api_token = user_data["api_token"]
+    headers = {
+        "Authorization": api_token,
+        "Content-Type": "application/json",
+    }
+    response = requests.get(
+        "https://api.octa.computer/accounts/balance", headers=headers
+    )
     print(response.json())
     return response.status_code == 200
 
