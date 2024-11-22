@@ -109,7 +109,12 @@ class Upload(Transfer):
                 return
 
             if self.status != TRANSFER_STATUS_FAILURE:
-                await self.run_job_create()
+                while True:
+                    try:
+                        await self.run_job_create()
+                        break
+                    except:
+                        await asyncio.sleep(5)
                 await self.run_cleanup()
                 self.status = TRANSFER_STATUS_SUCCESS
         else:
