@@ -11,7 +11,7 @@ from .util import (
     unpack_octa_farm_config,
     get_preferences,
 )
-from typing import TypedDict
+from typing import TypedDict, Optional
 from bpy.props import BoolProperty
 from bpy.types import PropertyGroup
 import webbrowser
@@ -20,6 +20,8 @@ from .install_dependencies import InstallDependenciesOperator
 TM_HOST = "http://127.0.0.1:7780"
 
 TRANSFER_MANAGER_IS_RUNNING = False  # Global variable for service status
+
+version = "20241125"
 
 
 class JobInformation(TypedDict):
@@ -34,6 +36,10 @@ class JobInformation(TypedDict):
     blender_version: str
     blend_name: str
     max_thumbnail_size: int
+
+
+class VersionException(Exception):
+    pass
 
 
 def get_url(path: str) -> str:
@@ -53,20 +59,36 @@ def verify_key(user_data: UserData) -> bool:
     return response.status_code == 200
 
 
+def request(method: str, path: str, user_data: Optional[UserData] = None, skip_version_check: bool = False, **kwargs) -> requests.Response:
+    url = get_url(path)
+    if user_data is not None:
+        headers = user_data.copy()
+    else:
+        headers = {}
+    if not skip_version_check:
+        headers['Transfer-Manager-Version'] = version
+    if 'headers' in kwargs:
+        h = kwargs.pop('headers')
+        headers.update(h)
+    response = requests.request(method, url, headers=headers, **kwargs)
+    if 200 <= response.status_code < 300:
+        return response
+    if response.status_code == 412:
+        raise VersionException(f"version mismatch: {response.content}")
+    raise Exception(f'Error when calling transfer manager, code {response.status_code}: {response.content}')
+
+
 def create_upload(
     local_file_path: str,
     job_information: JobInformation,
     user_data: UserData,
     metadata: dict,
 ) -> str:
-    response = requests.post(
-        get_url("/upload"),
-        headers=user_data,
-        json={
+    response = request("POST", "/upload", user_data, json={
             "local_file_path": local_file_path,
             "job_information": job_information,
             "metadata": metadata,
-        },
+        }
     )
     return response.json()
 
@@ -74,14 +96,11 @@ def create_upload(
 def create_download(
     local_dir_path: str, job_id: str, user_data: UserData, metadata: dict
 ) -> str:
-    response = requests.post(
-        get_url("/download"),
-        headers=user_data,
-        json={
+    response = request("POST", "/download", user_data, json={
             "local_dir_path": local_dir_path,
             "job_id": job_id,
             "metadata": metadata,
-        },
+        }
     )
     return response.json()
 
@@ -91,8 +110,12 @@ def background_is_reachable():
     global TRANSFER_MANAGER_IS_RUNNING
     while True:
         try:
-            response = requests.get(get_url("/transfer_manager_info"), timeout=5)
+            response = request("GET", "/transfer_manager_info", skip_version_check=True, timeout=5)
             TRANSFER_MANAGER_IS_RUNNING = response.status_code == 200
+        except VersionException as ve:
+            # TODO: tell user that we have a version mismatch on our hands
+            print(f"version mismatch {ve}")
+            TRANSFER_MANAGER_IS_RUNNING = False
         except Exception as e:
             TRANSFER_MANAGER_IS_RUNNING = False
             # print(f"Error checking Transfer Manager status: {e}")
@@ -202,7 +225,7 @@ class OCTA_OT_TransferManager(bpy.types.Operator):
         else:
             # Stop the Transfer Manager via shutdown endpoint
             try:
-                response = requests.get(get_url("/transfer_manager_info"), timeout=5)
+                response = request("GET", "/transfer_manager_info", skip_version_check=True, timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     ppid = data.get("process_id", None)
