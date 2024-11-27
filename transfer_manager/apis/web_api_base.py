@@ -24,6 +24,9 @@ class WebApiBase:
                 response = await client.request(method, url, **kwargs)
                 if 200 <= response.status_code <= 299:
                     return response.json()
+                elif response.status_code == 412:
+                    error_info = f"version mismatch, {response.content}"
+                    tries = retries
                 else:
                     error_info = f"status: {response.status_code}\n{response.content}"
             except:

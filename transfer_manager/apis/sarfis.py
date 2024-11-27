@@ -1,8 +1,15 @@
 from .web_api_base import WebApiBase
 from ..lib.user_data import UserData
 
+version = "20241125"
+soft_version = "20241125"
 
-class SarfisExeception(Exception):
+
+class SarfisException(Exception):
+    pass
+
+
+class SarfisVersionException(Exception):
     pass
 
 
@@ -13,6 +20,8 @@ class Sarfis:
         headers = {}
         if user_data.qm_auth_token:
             headers["Auth-Token"] = user_data.qm_auth_token
+            headers["Sarfis-Version"] = version
+            headers["Sarfis-Soft-Version"] = soft_version
         return await WebApiBase.request_with_retries('POST', url, json=endpoints, headers=headers)
 
     @classmethod
@@ -20,7 +29,7 @@ class Sarfis:
         status = result_data['status']
         body = result_data['body']
         if status != 'success':
-            raise SarfisExeception(f"sarfis call status was not success: {status}\n{body}")
+            raise SarfisException(f"sarfis call status was not success: {status}\n{body}")
         return body
 
     @classmethod
