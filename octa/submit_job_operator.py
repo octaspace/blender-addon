@@ -74,7 +74,8 @@ def subprocess_unpacker():
         current_file_path,
         "--python",
         subprocess_unpacker_script,
-        "--factory-startup" "--",
+        "--factory-startup",
+        "--",
         "-save_path",
         temp_blend_name,
     ]
