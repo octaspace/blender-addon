@@ -141,7 +141,7 @@ class OctaProperties(PropertyGroup):
         items=[
             ("blender41", "4.1", "4.1"),
             ("blender42", "4.2", "4.2"),
-            ("blender43", "4.3", "4.3"),
+            # ("blender43", "4.3", "4.3"),
         ],
         default="blender42",
     )
