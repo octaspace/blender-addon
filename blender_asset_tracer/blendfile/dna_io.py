@@ -28,6 +28,7 @@ import typing
 class EndianIO:
     # TODO(Sybren): note as UCHAR: struct.Struct = None and move actual structs to LittleEndianTypes
     UCHAR = struct.Struct(b"<B")
+    SINT8 = struct.Struct(b"<b")
     USHORT = struct.Struct(b"<H")
     USHORT2 = struct.Struct(b"<HH")  # two shorts in a row
     SSHORT = struct.Struct(b"<h")
@@ -61,6 +62,14 @@ class EndianIO:
     @classmethod
     def write_char(cls, fileobj: typing.IO[bytes], value: int):
         return cls._write(fileobj, cls.UCHAR, value)
+
+    @classmethod
+    def read_int8(cls, fileobj: typing.IO[bytes]):
+        return cls._read(fileobj, cls.SINT8)
+
+    @classmethod
+    def write_int8(cls, fileobj: typing.IO[bytes], value: int):
+        return cls._write(fileobj, cls.SINT8, value)
 
     @classmethod
     def read_ushort(cls, fileobj: typing.IO[bytes]):
@@ -207,6 +216,7 @@ class EndianIO:
         """
         return {
             b"char": cls.write_char,
+            b"int8": cls.write_int8,
             b"ushort": cls.write_ushort,
             b"short": cls.write_short,
             b"uint": cls.write_uint,
@@ -222,6 +232,7 @@ class LittleEndianTypes(EndianIO):
 
 class BigEndianTypes(LittleEndianTypes):
     UCHAR = struct.Struct(b">B")
+    SINT8 = struct.Struct(b">b")
     USHORT = struct.Struct(b">H")
     USHORT2 = struct.Struct(b">HH")  # two shorts in a row
     SSHORT = struct.Struct(b">h")

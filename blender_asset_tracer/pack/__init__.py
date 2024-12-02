@@ -26,9 +26,8 @@ import tempfile
 import threading
 import typing
 
-from .. import trace
-from ..trace import file_sequence, result
-from .. import blendfile, bpathlib
+from blender_asset_tracer import trace, bpathlib, blendfile
+from blender_asset_tracer.trace import file_sequence, result
 
 from . import filesystem, transfer, progress
 

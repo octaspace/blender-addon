@@ -24,15 +24,13 @@ when you want to use the ZIP cross-platform and you have non-ASCII names.
 """
 import logging
 import pathlib
-import hashlib
+
 from . import Packer, transfer
 
 log = logging.getLogger(__name__)
 
 # Suffixes to store uncompressed in the zip.
-STORE_ONLY = {".jpg", ".jpeg", ".exr", ".blend"}
-# store md5 for following files
-MD5_HASH = {".blend"}
+STORE_ONLY = {".jpg", ".jpeg", ".exr"}
 
 
 class ZipPacker(Packer):
@@ -55,14 +53,6 @@ class ZipTransferrer(transfer.FileTransferer):
         super().__init__()
         self.zippath = zippath
 
-    @staticmethod
-    def get_file_md5(path: str) -> str:
-        hasher = hashlib.md5()
-        with open(path, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b''):
-                hasher.update(chunk)
-        return hasher.hexdigest()
-
     def run(self) -> None:
         import zipfile
 
@@ -81,16 +71,11 @@ class ZipTransferrer(transfer.FileTransferer):
                         compression = zipfile.ZIP_STORED
                         log.debug("ZIP %s -> %s (uncompressed)", src, relpath)
                     else:
-                        compression = zipfile.ZIP_STORED
+                        compression = zipfile.ZIP_DEFLATED
                         log.debug("ZIP %s -> %s", src, relpath)
                     outzip.write(
                         str(src), arcname=str(relpath), compress_type=compression
                     )
-
-                    # md5 hash if applicable
-                    if src.suffix.lower() in MD5_HASH:
-                        file_hash = self.get_file_md5(str(src))
-                        outzip.writestr(f"{relpath}.md5", file_hash, zipfile.ZIP_STORED)
 
                     if act == transfer.Action.MOVE:
                         self.delete_file(src)

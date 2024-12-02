@@ -30,7 +30,7 @@ import pathlib
 import queue
 import typing
 
-from .. import blendfile, bpathlib
+from blender_asset_tracer import blendfile, bpathlib
 from . import expanders, progress
 
 _funcs_for_code = {}  # type: typing.Dict[bytes, typing.Callable]

@@ -5,7 +5,7 @@ import logging
 import pathlib
 import shutil
 
-from .blendfile import magic_compression
+from blender_asset_tracer.blendfile import magic_compression
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ def _move_or_copy(
 
         my_log.debug("Compressing %s on the fly while copying to %s", src, dest)
         srcfile.seek(0)
-        with gzip.open(str(dest), mode="wb", compresslevel=0) as destfile:
+        with gzip.open(str(dest), mode="wb") as destfile:
             shutil.copyfileobj(srcfile, destfile, BLOCK_SIZE)
 
         srcfile.close()

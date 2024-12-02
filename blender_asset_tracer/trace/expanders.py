@@ -26,8 +26,8 @@ blocks necessary to render/display/work with the given data block).
 import logging
 import typing
 
-from .. import blendfile, cdefs
-from ..blendfile import iterators
+from blender_asset_tracer import blendfile, cdefs
+from blender_asset_tracer.blendfile import iterators
 
 # Don't warn about these types at all.
 _warned_about_types = {b"LI", b"DATA"}

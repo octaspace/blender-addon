@@ -52,6 +52,8 @@ eModifierType_MeshSequenceCache = 52
 eModifierType_Fluid = 56
 eModifierType_Nodes = 57
 
+# NodesModifierBakeFlag
+NODES_MODIFIER_BAKE_CUSTOM_PATH = 1 << 1
 
 # DNA_particle_types.h
 PART_DRAW_OB = 7

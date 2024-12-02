@@ -23,8 +23,8 @@ import pathlib
 import typing
 from typing import Optional
 
-from .. import blendfile, bpathlib
-from ..blendfile import dna
+from blender_asset_tracer import blendfile, bpathlib
+from blender_asset_tracer.blendfile import dna
 from . import file_sequence
 
 log = logging.getLogger(__name__)

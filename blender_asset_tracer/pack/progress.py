@@ -27,13 +27,12 @@ import queue
 import typing
 from typing import Optional
 
-from ..trace import progress
-from .. import trace
+import blender_asset_tracer.trace.progress
 
 log = logging.getLogger(__name__)
 
 
-class Callback(trace.progress.Callback):
+class Callback(blender_asset_tracer.trace.progress.Callback):
     """BAT Pack progress reporting."""
 
     def pack_start(self) -> None:

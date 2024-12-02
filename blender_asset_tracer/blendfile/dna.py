@@ -253,14 +253,15 @@ class Struct:
             return field, self._field_get_char(
                 file_header, fileobj, field, null_terminated, as_str
             )
+
         simple_readers = {
             b"uchar": endian.read_char,
             b"int": endian.read_int,
             b"short": endian.read_short,
             b"uint64_t": endian.read_ulong,
             b"float": endian.read_float,
+            b"int8_t": endian.read_int8,
         }
-
         try:
             simple_reader = simple_readers[dna_type.dna_type_id]
         except KeyError:
