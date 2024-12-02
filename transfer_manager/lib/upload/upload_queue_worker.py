@@ -56,6 +56,7 @@ class UploadQueueWorker(TransferQueueWorker):
 
         upload = work_order.upload
         upload_id = await upload.get_upload_id()
+        upload_progress = upload.progress
 
         while not self.ct.is_canceled():
             current_bytes = [0]  # cant pass an int by reference, so list of a single int it is
@@ -66,7 +67,7 @@ class UploadQueueWorker(TransferQueueWorker):
                     upload.url,
                     upload_id,
                     work_order.part_number,
-                    self.data_generator(data, current_bytes, work_order.progress, upload.progress)
+                    self.data_generator(data, current_bytes, work_order.progress, upload_progress)
                 )
                 work_order.status = TRANSFER_STATUS_SUCCESS
                 logger.debug(f"upload of {transfer_name} returned {result}")
@@ -77,6 +78,7 @@ class UploadQueueWorker(TransferQueueWorker):
                 self.queue.notify_workorder_retry(self)
                 logger.debug(exc)
                 work_order.history.append(exc)
+                upload_progress.decrease_done(current_bytes[0])
                 work_order.progress.set_done(0)
                 await asyncio.sleep(3)
 
