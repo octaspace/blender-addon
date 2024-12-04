@@ -23,11 +23,12 @@
 Those can expand data blocks and yield their dependencies (e.g. other data
 blocks necessary to render/display/work with the given data block).
 """
+
 import logging
 import typing
 
-from blender_asset_tracer import blendfile, cdefs
-from blender_asset_tracer.blendfile import iterators
+from .. import blendfile, cdefs
+from ..blendfile import iterators
 
 # Don't warn about these types at all.
 _warned_about_types = {b"LI", b"DATA"}

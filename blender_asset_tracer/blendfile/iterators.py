@@ -22,7 +22,7 @@
 import typing
 import copy
 
-from blender_asset_tracer import cdefs
+from .. import cdefs
 from . import BlendFileBlock
 from .dna import FieldPath
 
@@ -76,7 +76,7 @@ def modifiers(object_block: BlendFileBlock) -> typing.Iterator[BlendFileBlock]:
 def dynamic_array(block: BlendFileBlock) -> typing.Iterator[BlendFileBlock]:
     """
     Generator that yields each element of a dynamic array as a separate block.
-    
+
     Dynamic arrays are multiple contiguous elements accessed via a single pointer.
     BAT interprets these as a single data block, making it hard to access individual elements.
     This function divides the array into individual blocks by creating modified copies of the original block.

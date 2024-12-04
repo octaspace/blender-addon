@@ -26,7 +26,7 @@ files used by the modifiers.
 import logging
 import typing
 
-from blender_asset_tracer import blendfile, bpathlib, cdefs
+from .. import blendfile, bpathlib, cdefs
 from . import result
 
 log = logging.getLogger(__name__)

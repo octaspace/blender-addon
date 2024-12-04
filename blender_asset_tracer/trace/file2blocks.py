@@ -24,13 +24,14 @@ set of actually-used data blocks. This set consists of all data blocks in the
 initial blend file, and all *actually linked-to* data blocks in linked
 blend files.
 """
+
 import collections
 import logging
 import pathlib
 import queue
 import typing
 
-from blender_asset_tracer import blendfile, bpathlib
+from .. import blendfile, bpathlib
 from . import expanders, progress
 
 _funcs_for_code = {}  # type: typing.Dict[bytes, typing.Callable]

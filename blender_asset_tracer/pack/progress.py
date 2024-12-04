@@ -18,6 +18,7 @@
 #
 # (c) 2018, Blender Foundation - Sybren A. Stüvel
 """Callback class definition for BAT Pack progress reporting."""
+
 import threading
 
 import functools
@@ -27,12 +28,12 @@ import queue
 import typing
 from typing import Optional
 
-import blender_asset_tracer.trace.progress
+from ..trace import progress
 
 log = logging.getLogger(__name__)
 
 
-class Callback(blender_asset_tracer.trace.progress.Callback):
+class Callback(progress.Callback):
     """BAT Pack progress reporting."""
 
     def pack_start(self) -> None:

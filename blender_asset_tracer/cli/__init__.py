@@ -28,7 +28,7 @@ from . import blocks, common, pack, list_deps, version
 
 
 def cli_main():
-    from blender_asset_tracer import __version__
+    from .. import __version__
 
     parser = argparse.ArgumentParser(
         description="BAT: Blender Asset Tracer v%s" % __version__
@@ -85,7 +85,7 @@ def cli_main():
     args = parser.parse_args()
     config_logging(args)
 
-    from blender_asset_tracer import __version__
+    from .. import __version__
 
     log = logging.getLogger(__name__)
 
@@ -132,6 +132,6 @@ def config_logging(args):
 
 
 def set_strict_pointer_mode(strict_pointers: bool) -> None:
-    from blender_asset_tracer import blendfile
+    from .. import blendfile
 
     blendfile.set_strict_pointer_mode(strict_pointers)

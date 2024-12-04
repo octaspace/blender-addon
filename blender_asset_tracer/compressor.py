@@ -5,7 +5,7 @@ import logging
 import pathlib
 import shutil
 
-from blender_asset_tracer.blendfile import magic_compression
+from .blendfile import magic_compression
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def _move_or_copy(
     dest: pathlib.Path,
     my_log: logging.Logger,
     *,
-    source_must_remain: bool
+    source_must_remain: bool,
 ):
     """Either move or copy a file, gzip-compressing if not compressed yet.
 

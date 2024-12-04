@@ -18,13 +18,15 @@
 #
 # (c) 2018, Blender Foundation - Sybren A. Stüvel
 """Create a BAT-pack for the given blend file."""
+
 import logging
 import pathlib
 import sys
 import typing
 
-import blender_asset_tracer.pack.transfer
-from blender_asset_tracer import pack, bpathlib
+# import blender_asset_tracer.pack.transfer
+from ..pack import transfer
+from .. import pack, bpathlib
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +99,7 @@ def cli_pack(args):
         packer.strategise()
         try:
             packer.execute()
-        except blender_asset_tracer.pack.transfer.FileTransferError as ex:
+        except transfer.FileTransferError as ex:
             log.error(
                 "%d files couldn't be copied, starting with %s",
                 len(ex.files_remaining),
@@ -140,7 +142,7 @@ def create_packer(
         packer = create_shamanpacker(bpath, ppath, target)
 
     elif target.lower().endswith(".zip"):
-        from blender_asset_tracer.pack import zipped
+        from .pack import zipped
 
         if args.compress:
             raise ValueError("ZIP packer does not support on-the-fly compression")
@@ -167,7 +169,7 @@ def create_packer(
 
 
 def create_s3packer(bpath, ppath, tpath) -> pack.Packer:
-    from blender_asset_tracer.pack import s3
+    from .pack import s3
 
     # Split the target path into 's3:/', hostname, and actual target path
     parts = tpath.parts
@@ -188,7 +190,7 @@ def create_shamanpacker(
     This uses HTTPS to connect to the server. To connect using HTTP, use:
         shaman+http://hostname/base-url#jobID
     """
-    from blender_asset_tracer.pack import shaman
+    from .pack import shaman
 
     endpoint, checkout_id = shaman.parse_endpoint(tpath)
     if not checkout_id:

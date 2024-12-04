@@ -25,8 +25,8 @@ import typing
 
 import requests
 
-import blender_asset_tracer.pack.transfer as bat_transfer
-from blender_asset_tracer import bpathlib
+from ...pack import transfer as bat_transfer
+from ... import bpathlib
 
 MAX_DEFERRED_PATHS = 8
 MAX_FAILED_PATHS = 8

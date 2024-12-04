@@ -21,7 +21,7 @@ import logging
 import pathlib
 import typing
 
-from blender_asset_tracer import blendfile
+from .. import blendfile
 from . import result, blocks2assets, file2blocks, progress
 
 log = logging.getLogger(__name__)

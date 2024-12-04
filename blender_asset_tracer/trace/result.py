@@ -23,8 +23,8 @@ import pathlib
 import typing
 from typing import Optional
 
-from blender_asset_tracer import blendfile, bpathlib
-from blender_asset_tracer.blendfile import dna
+from .. import blendfile, bpathlib
+from ..blendfile import dna
 from . import file_sequence
 
 log = logging.getLogger(__name__)
@@ -69,21 +69,21 @@ class BlockUsage:
             self.block_name = self.guess_block_name(block)
 
         assert isinstance(block, blendfile.BlendFileBlock)
-        assert isinstance(
-            asset_path, (bytes, bpathlib.BlendPath)
-        ), "asset_path should be BlendPath, not %r" % type(asset_path)
+        assert isinstance(asset_path, (bytes, bpathlib.BlendPath)), (
+            "asset_path should be BlendPath, not %r" % type(asset_path)
+        )
 
         if path_full_field is None:
-            assert isinstance(
-                path_dir_field, dna.Field
-            ), "path_dir_field should be dna.Field, not %r" % type(path_dir_field)
-            assert isinstance(
-                path_base_field, dna.Field
-            ), "path_base_field should be dna.Field, not %r" % type(path_base_field)
+            assert isinstance(path_dir_field, dna.Field), (
+                "path_dir_field should be dna.Field, not %r" % type(path_dir_field)
+            )
+            assert isinstance(path_base_field, dna.Field), (
+                "path_base_field should be dna.Field, not %r" % type(path_base_field)
+            )
         else:
-            assert isinstance(
-                path_full_field, dna.Field
-            ), "path_full_field should be dna.Field, not %r" % type(path_full_field)
+            assert isinstance(path_full_field, dna.Field), (
+                "path_full_field should be dna.Field, not %r" % type(path_full_field)
+            )
 
         if isinstance(asset_path, bytes):
             asset_path = bpathlib.BlendPath(asset_path)

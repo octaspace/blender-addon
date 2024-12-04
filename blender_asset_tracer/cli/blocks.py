@@ -18,11 +18,12 @@
 #
 # (c) 2018, Blender Foundation - Sybren A. Stüvel
 """List count and total size of datablocks in a blend file."""
+
 import collections
 import logging
 import pathlib
 
-from blender_asset_tracer import blendfile
+from .. import blendfile
 from . import common
 
 log = logging.getLogger(__name__)

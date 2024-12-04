@@ -18,7 +18,8 @@
 #
 # (c) 2021, Blender Foundation - Sybren A. Stüvel
 """Print version of BAT and exit."""
-from blender_asset_tracer import __version__
+
+from .. import __version__
 
 
 def add_parser(subparsers):

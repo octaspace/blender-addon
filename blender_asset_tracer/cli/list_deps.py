@@ -18,6 +18,7 @@
 #
 # (c) 2018, Blender Foundation - Sybren A. Stüvel
 """List dependencies of a blend file."""
+
 import functools
 import hashlib
 import json
@@ -27,7 +28,7 @@ import sys
 import time
 import typing
 
-from blender_asset_tracer import trace, bpathlib
+from .. import trace, bpathlib
 from . import common
 
 log = logging.getLogger(__name__)

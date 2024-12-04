@@ -26,8 +26,8 @@ import tempfile
 import threading
 import typing
 
-from blender_asset_tracer import trace, bpathlib, blendfile
-from blender_asset_tracer.trace import file_sequence, result
+from .. import trace, bpathlib, blendfile
+from ..trace import file_sequence, result
 
 from . import filesystem, transfer, progress
 
@@ -128,9 +128,7 @@ class Packer:
             log.warning("Running in no-op mode, only showing what will be done.")
 
         # Filled by strategise()
-        self._actions = collections.defaultdict(
-            AssetAction
-        )  # type: typing.DefaultDict[pathlib.Path, AssetAction]
+        self._actions = collections.defaultdict(AssetAction)  # type: typing.DefaultDict[pathlib.Path, AssetAction]
         self.missing_files = set()  # type: typing.Set[pathlib.Path]
         self._new_location_paths = set()  # type: typing.Set[pathlib.Path]
         self._output_path = None  # type: typing.Optional[pathlib.PurePath]
