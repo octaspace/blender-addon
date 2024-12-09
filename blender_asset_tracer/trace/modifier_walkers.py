@@ -27,6 +27,7 @@ import logging
 import typing
 
 from .. import blendfile, bpathlib, cdefs
+from ..blendfile.exceptions import SegmentationFault
 from . import result
 
 log = logging.getLogger(__name__)
@@ -360,8 +361,12 @@ def modifier_nodes(
     mod_directory_ptr, mod_directory_field = modifier.get(
         b"simulation_bake_directory", return_field=True
     )
-
-    bakes = modifier.get_pointer(b"bakes")
+    try:
+        bakes = modifier.get_pointer(b"bakes")
+    except KeyError:
+        return
+    except SegmentationFault:
+        return
 
     for bake_idx, bake in enumerate(blendfile.iterators.dynamic_array(bakes)):
         bake_directory_ptr, bake_directory_field = bake.get(
