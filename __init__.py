@@ -1,7 +1,7 @@
 bl_info = {
     "name": "OctaSpace Blender Addon",
     "author": "OctaSpace",
-    "version": (1, 0),
+    "version": (1, 1, 0),
     "blender": (4, 0, 0),
     "location": "Properties > Render > Exporter",
     "description": "Export To OctaSpace Render",
