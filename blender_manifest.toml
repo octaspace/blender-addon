@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "octa_render_extension"
-version = "1.0.0"
+version = "1.1.0"
 name = "Octa Render"
 tagline = "Extension for the Octa Render Farm"
 maintainer = "Octa Team <discord.com/invite/octaspace>"
