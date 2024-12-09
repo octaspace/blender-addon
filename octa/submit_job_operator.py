@@ -16,6 +16,7 @@ import addon_utils
 import json
 import zipfile
 import traceback
+from ast import literal_eval
 
 DEFAULT_ADDONS = [
     "io_anim_bvh",
@@ -116,11 +117,7 @@ class SubmitJobOperator(Operator):
 
     installed_addons = []
 
-    addons_to_send: bpy.props.StringProperty(
-        name="Addons to Send",
-        default="",
-        description="Comma separated list of addons to send",
-    )
+    addons_to_send = []
 
     def __init__(self):
         self._run_thread: Thread = None
@@ -132,6 +129,10 @@ class SubmitJobOperator(Operator):
             for mod in addon_utils.modules()
             if addon_utils.check(mod.__name__)[1] and mod.__name__ not in DEFAULT_ADDONS
         ]
+
+    @classmethod
+    def set_addons_to_send(cls, value: str):
+        cls.addons_to_send = literal_eval(value)
 
     @classmethod
     def poll(cls, context):
@@ -220,9 +221,10 @@ class SubmitJobOperator(Operator):
         return {"RUNNING_MODAL"}
 
     def zip_addons(self, zip_path):
-        addons_to_send = self.addons_to_send.strip().split(",")
+        print("Addons to send:", self.addons_to_send)
+        print("Installed addons:", self.installed_addons)
         addons_to_send = [
-            mod for mod in self.installed_addons if mod.__name__ in addons_to_send
+            mod for mod in self.installed_addons if mod.__name__ in self.addons_to_send
         ]
 
         enabled_addons = [
@@ -240,11 +242,12 @@ class SubmitJobOperator(Operator):
                     archive_root = os.path.relpath(root, addon_path)
                     for file in files:
                         file_path = os.path.join(root, file)
+                        addon_root = os.path.join("scripts", "addons", addon_name)
+                        addon_path = os.path.join(addon_root, archive_root, file)
+
                         zipf.write(
                             file_path,
-                            os.path.join(
-                                "scripts", "addons", addon_name, archive_root, file
-                            ),
+                            addon_path,
                         )
 
             zipf.writestr("enabled_addons.json", json.dumps(enabled_addons))
@@ -364,6 +367,8 @@ class SubmitJobOperator(Operator):
                 )
 
             metadata = {"file_size": os.stat(temp_zip).st_size}
+
+            print(metadata)
 
             while not ensure_running():
                 time.sleep(3)

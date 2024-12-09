@@ -18,7 +18,7 @@ from .install_dependencies import InstallDependenciesOperator
 
 # Global dictionary to store visibility states
 visibility_states = {}
-addons_to_send = {}
+addons_to_send = []
 
 
 class ToggleAddonSelectionOperator(bpy.types.Operator):
@@ -30,7 +30,11 @@ class ToggleAddonSelectionOperator(bpy.types.Operator):
     addon_name: bpy.props.StringProperty()
 
     def execute(self, context):
-        addons_to_send[self.addon_name] = not addons_to_send.get(self.addon_name, False)
+        global addons_to_send
+        if not addons_to_send:
+            addons_to_send = [self.addon_name]
+        else:
+            addons_to_send = list(set(addons_to_send.append(self.addon_name)))
         context.area.tag_redraw()
         return {"FINISHED"}
 
@@ -39,7 +43,7 @@ def addon_section(layout, addon_name, addon_label=None):
     if addon_name is None:
         return None
     global addons_to_send
-    enabled = addons_to_send.get(addon_name, False)
+    enabled = addon_name in addons_to_send
 
     row = layout.row()
     col = row.column(align=True)
@@ -789,6 +793,10 @@ class OctaPanel(Panel):
             col.label(text="Install dependencies in addon preferences", icon="ERROR")
 
         row = col.row()
+
+        SubmitJobOperator.set_installed_addons()
+        SubmitJobOperator.set_addons_to_send(str(addons_to_send))
+
         submit_op = row.operator(
             SubmitJobOperator.bl_idname,
             icon_value=icons["custom_icon"].icon_id,
@@ -830,8 +838,6 @@ class OctaPanel(Panel):
 
         if content_manager_section is not None:
             content_manager(content_manager_section, context)
-
-        SubmitJobOperator.set_installed_addons()
 
         addon_send_section = section(
             layout, properties, "addon_section_visible", "Included Addons"
