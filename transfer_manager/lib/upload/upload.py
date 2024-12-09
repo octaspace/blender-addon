@@ -98,15 +98,16 @@ class Upload(Transfer):
     async def _on_transfer_ended(self, transfer_success):
         self.get_file().close()
         self._file = None
-        upload_id = await self.get_upload_id()
         if transfer_success:
-            try:
-                await async_with_retries(AsyncR2Worker.complete_multipart_upload, self.user_data, self.url, upload_id, self.etags, retries=20)
-            except Exception as ex:
-                self.status = TRANSFER_STATUS_FAILURE
-                self.status_text = f"Could not complete upload due to cloudflare error"
-                logger.error(f"could not complete upload with etags {self.etags}: {ex.args[0]}")
-                return
+            if len(self.work_orders) > 1:
+                upload_id = await self.get_upload_id()
+                try:
+                    await async_with_retries(AsyncR2Worker.complete_multipart_upload, self.user_data, self.url, upload_id, self.etags, retries=20)
+                except Exception as ex:
+                    self.status = TRANSFER_STATUS_FAILURE
+                    self.status_text = f"Could not complete upload due to cloudflare error"
+                    logger.error(f"could not complete upload with etags {self.etags}: {ex.args[0]}")
+                    return
 
             if self.status != TRANSFER_STATUS_FAILURE:
                 while True:
@@ -114,11 +115,14 @@ class Upload(Transfer):
                         await self.run_job_create()
                         break
                     except:
+                        logger.debug(format_exc())
                         await asyncio.sleep(5)
                 await self.run_cleanup()
                 self.status = TRANSFER_STATUS_SUCCESS
         else:
-            await AsyncR2Worker.abort_multipart_upload(self.user_data, self.url, upload_id)
+            if len(self.work_orders) > 1:
+                upload_id = await self.get_upload_id()
+                await AsyncR2Worker.abort_multipart_upload(self.user_data, self.url, upload_id)
             await self.run_cleanup()
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = "Some parts could not be uploaded"
@@ -141,7 +145,9 @@ class Upload(Transfer):
         # this is done this way to prevent a race condition when 2 workers call update at the same time
         if transfer_ended and not self.transfer_ended_called:
             self.transfer_ended_called = True
+            logger.debug("calling transfer ended handler")
             await self._on_transfer_ended(transfer_success)
+            logger.debug("called transfer ended handler")
             self.finished_at = time.time()
 
     async def run_job_create(self):

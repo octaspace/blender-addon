@@ -11,7 +11,7 @@ UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1MB
 
 
 class UploadQueueWorker(TransferQueueWorker):
-    async def data_generator(self, _data, current_bytes: list, work_order_progress: Progress, upload_progress: Progress):
+    async def data_generator(self, _data: bytes, current_bytes: list, work_order_progress: Progress, upload_progress: Progress):
         for i in range(0, len(_data), UPLOAD_CHUNK_SIZE):
             # TODO: no idea what will happen if we stall here indefinitely, could break, maybe resort to 1B/sec upload rate?
             await self._check_pause()
@@ -26,15 +26,21 @@ class UploadQueueWorker(TransferQueueWorker):
 
     async def _single(self, work_order: UploadWorkOrder):
         work_order.progress.set_total(work_order.size)
-        upload_progress = work_order.upload.progress
+        upload = work_order.upload
+        upload_progress = upload.progress
+        work_order_progress = work_order.progress
+
+        file = upload.get_file()
+        file.seek(0)
+        data = file.read()
 
         while not self.ct.is_canceled():
             current_bytes = [0]  # cant pass an int by reference, so list of a single int it is
             try:
                 await AsyncR2Worker.upload_single_part(
-                    work_order.upload.user_data,
-                    work_order.upload.url,
-                    self.data_generator(work_order.upload.get_file().read(), current_bytes, work_order.progress, upload_progress)
+                    upload.user_data,
+                    upload.url,
+                    self.data_generator(data, current_bytes, work_order_progress, upload_progress)
                 )
                 work_order.status = TRANSFER_STATUS_SUCCESS
                 break
@@ -44,7 +50,7 @@ class UploadQueueWorker(TransferQueueWorker):
                 logger.debug(exc)
                 work_order.history.append(exc)
                 upload_progress.decrease_done(current_bytes[0])
-                work_order.progress.set_done(0)
+                work_order_progress.set_done(0)
 
     async def _multi(self, work_order: UploadWorkOrder):
         transfer_name = f"part {work_order.part_number} with offset {work_order.offset} and size {work_order.size}"
