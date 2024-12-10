@@ -34,7 +34,8 @@ class ToggleAddonSelectionOperator(bpy.types.Operator):
         if not addons_to_send:
             addons_to_send = [self.addon_name]
         else:
-            addons_to_send = list(set(addons_to_send.append(self.addon_name)))
+            if self.addon_name not in addons_to_send:
+                addons_to_send.append(self.addon_name)
         context.area.tag_redraw()
         return {"FINISHED"}
 
