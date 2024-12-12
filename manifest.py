@@ -41,10 +41,11 @@ with open(blender_manifest, "w") as f:
     manifest['version'] = version
     f.write(toml.dumps(manifest))
 
-with open(init_path, "r+") as f:
+with open(init_path, "r") as f:
     init_content = f.read()
-    while ("(1, 0, 0)" in init_content):
-        init_content = init_content.replace("(1, 0, 0)", f"({ version.replace('.', ', ') })")
+    init_content = init_content.replace("(1, 0, 0)", f"({ version.replace('.', ', ') })")
+
+with open(init_path, "w") as f:
     f.write(init_content)
 
 with zipfile.ZipFile(extension_path, "w") as extension_archive:
