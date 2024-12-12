@@ -43,7 +43,7 @@ with open(blender_manifest, "w") as f:
 
 with open(init_path, "r+") as f:
     init_content = f.read()
-    init_content = init_content.replace("version = (1, 0, 0)", f"version = ({ version.replace('.', ', ') })")
+    init_content = init_content.replace("(1, 0, 0)", f"({ version.replace('.', ', ') })")
     f.write(init_content)
 
 with zipfile.ZipFile(extension_path, "w") as extension_archive:
