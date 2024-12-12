@@ -63,7 +63,7 @@ with zipfile.ZipFile(addon_path, "w") as addon_archive:
 
 with open(init_path, "r+") as f:
     init_content = f.read()
-    init_content = init_content.replace("version = (1, 0, 0)", f"version = ({version.replace(".", ", ")})")
+    init_content = init_content.replace("version = (1, 0, 0)", f"version = ({ version.replace('.', ', ') })")
     f.write(init_content)
 
 with open(extension_path, "rb") as f:
