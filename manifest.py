@@ -8,6 +8,7 @@ extension_index = os.path.join(addon_directory, "extensions_index.json")
 blender_manifest = os.path.join(addon_directory, "blender_manifest.toml")
 extension_path = f"{addon_directory}_Extension.zip"
 addon_path = f"{addon_directory}_Addon.zip"
+init_path = os.path.join(addon_directory, "__init__.py")
 
 exclude_files_addon = ["__pycache__",
                  ".git",
@@ -60,6 +61,10 @@ with zipfile.ZipFile(addon_path, "w") as addon_archive:
             else:
                 addon_archive.write(file_path, os.path.relpath(file_path, '/tmp/'))
 
+with open(init_path, "r+") as f:
+    init_content = f.read()
+    init_content = init_content.replace("version = (1, 0, 0)", f"version = ({version.replace(".", ", ")})")
+    f.write(init_content)
 
 with open(extension_path, "rb") as f:
     archive_content = f.read()
