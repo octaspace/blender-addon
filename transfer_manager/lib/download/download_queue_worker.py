@@ -32,6 +32,14 @@ class DownloadQueueWorker(TransferQueueWorker):
                         logger.debug(f"start downloading {transfer_name}")
                         async with client.stream("GET", work_order.url, headers={'authentication': download.user_data.api_token}) as response:
                             if not 200 <= response.status_code <= 299:
+                                if response.status_code == 404:
+                                    msg = f"download {transfer_name} not found, skipping"
+                                    logger.warning(msg)
+                                    work_order.history.append(msg)
+                                    work_order.progress.set_value(1)
+                                    work_order.status_text = "Not Found, Skipping"
+                                    work_order.status = TRANSFER_STATUS_SUCCESS
+                                    break
                                 msg = f"download of {transfer_name} failed with response code {response.status_code}"
                                 logger.warning(msg)
                                 raise Exception(msg)
