@@ -167,24 +167,27 @@ class Upload(Transfer):
             end = frame_end
 
         render_format = self.job_info['render_format']
+        job_data = {
+            "id": self.job_id,
+            "name": self.job_info['name'],
+            "status": "queued",
+            "start": frame_start,
+            "batch_size": batch_size,
+            "end": end,
+            "frame_step": frame_step,
+            "render_passes": self.job_info['render_passes'],
+            "render_format": render_format,
+            "version": version,
+            "render_engine": self.job_info['render_engine'],
+            "blender_version": self.job_info['blender_version'],
+            "archive_size": self.file_size,
+        }
+        if job_data['render_engine'] == "BLENDER_EEVEE_NEXT":
+            job_data['capabilities'] = "eevee"
         await Sarfis.node_job(
             self.user_data,
             {
-                "job_data": {
-                    "id": self.job_id,
-                    "name": self.job_info['name'],
-                    "status": "queued",
-                    "start": frame_start,
-                    "batch_size": batch_size,
-                    "end": end,
-                    "frame_step": frame_step,
-                    "render_passes": self.job_info['render_passes'],
-                    "render_format": render_format,
-                    "version": version,
-                    "render_engine": self.job_info['render_engine'],
-                    "blender_version": self.job_info['blender_version'],
-                    "archive_size": self.file_size,
-                },
+                "job_data": job_data,
                 "operations": get_operations(
                     os.path.basename(self.job_info['blend_name']),
                     render_format,
