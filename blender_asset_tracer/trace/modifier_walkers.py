@@ -370,8 +370,6 @@ def modifier_nodes(
     if not bakes:
         return
 
-    print("bakes", bakes)
-
     for bake_idx, bake in enumerate(blendfile.iterators.dynamic_array(bakes)):
         bake_directory_ptr, bake_directory_field = bake.get(
             b"directory", return_field=True
