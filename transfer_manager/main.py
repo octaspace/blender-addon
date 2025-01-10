@@ -44,9 +44,21 @@ def main():
     bp_api.add_route(logs, "/logs", methods=("GET",))
     bp_api.add_route(queues, "/queues", methods=("GET",))
 
+    app.add_websocket_route(websocket_test, "/ws")
+
     app.blueprint(bp_api)
     app.add_route(index, "/", methods=("GET",))
     return app
+
+
+from sanic import Websocket, Request
+import asyncio
+
+
+async def websocket_test(request: Request, ws: Websocket):
+    while True:
+        await asyncio.sleep(5)
+        await ws.send("pong")
 
 
 if __name__ == "__main__":
