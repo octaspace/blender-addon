@@ -51,16 +51,6 @@ def main():
     return app
 
 
-from sanic import Websocket, Request
-import asyncio
-
-
-async def websocket_test(request: Request, ws: Websocket):
-    while True:
-        await asyncio.sleep(5)
-        await ws.send("pong")
-
-
 if __name__ == "__main__":
     app = main()
     debug = True  # TODO: get from config somewhere
