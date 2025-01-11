@@ -48,8 +48,8 @@ def subprocess_unpacker():
     temp_blend_name = os.path.abspath(
         os.path.join(folder, os.path.basename(current_file_path))
     )
-
-    bpy.ops.wm.save_as_mainfile(filepath=temp_blend_name, copy=True, compress=True)
+    bpy.ops.wm.save_mainfile()
+    bpy.ops.wm.save_as_mainfile(filepath=temp_blend_name, copy=True, compress=True, relative_remap=False)
 
     blender_executable = bpy.app.binary_path
 
