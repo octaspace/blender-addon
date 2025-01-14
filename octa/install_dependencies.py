@@ -18,6 +18,27 @@ def redraw_preferences():
                 area.tag_redraw()
 
 
+def handle_windows_permission_error(e, operator, description) -> bool:
+    """
+    Detect if the error is a Windows "Access is denied" error ([Error 5]).
+    If so, show a Blender error message instructing the user to run Blender as Administrator,
+    end the operator, and return True. Otherwise, return False.
+    """
+    if sys.platform.startswith("win") and (
+        "Access is denied" in str(e) or "[Error 5]" in str(e)
+    ):
+        msg = "Windows Access Denied. Please run Blender as Administrator."
+        print(msg)
+        # Report the error to Blender's UI
+        operator.report({"ERROR"}, msg)
+        operator.set_progress_name(msg)
+        operator.finish(bpy.context)
+        operator.set_progress(1)
+        operator._set_running(False)
+        return True
+    return False
+
+
 class InstallDependenciesOperator(bpy.types.Operator):
     """Install Python dependencies from a requirements.txt file."""
 
@@ -289,7 +310,11 @@ class InstallDependenciesOperator(bpy.types.Operator):
                 )
                 print(f"Command succeeded for {description}. Output:\n{result.stdout}")
             except subprocess.CalledProcessError as e:
-                print(f"Command failed ({description}): {e.stderr}")
+                # First, see if it's a Windows permission error; handle if yes.
+                if handle_windows_permission_error(e.stderr, self, description):
+                    return  # Stop further processing (we already reported error)
+                else:
+                    print(f"Command failed ({description}): {e.stderr}")
 
         async def install_async():
             if not os.path.exists(self.download_directory):
