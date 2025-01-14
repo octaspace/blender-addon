@@ -1,4 +1,11 @@
-from ..transfer import Transfer, TRANSFER_STATUS_RUNNING, TRANSFER_STATUS_PAUSED, TRANSFER_STATUS_SUCCESS, TRANSFER_STATUS_FAILURE, TRANSFER_STATUS_CREATED
+from ..transfer import (
+    Transfer,
+    TRANSFER_STATUS_RUNNING,
+    TRANSFER_STATUS_PAUSED,
+    TRANSFER_STATUS_SUCCESS,
+    TRANSFER_STATUS_FAILURE,
+    TRANSFER_STATUS_CREATED,
+)
 from ...apis.sarfis import Sarfis
 from ..util import get_next_id, get_file_md5, async_with_retries
 from ..sarfis_operations import get_operations
@@ -34,7 +41,13 @@ class JobInformation(TypedDict):
 
 
 class Upload(Transfer):
-    def __init__(self, user_data: UserData, local_file_path: str, job_info: JobInformation, metadata: dict):
+    def __init__(
+        self,
+        user_data: UserData,
+        local_file_path: str,
+        job_info: JobInformation,
+        metadata: dict,
+    ):
         super().__init__(get_next_id(), "upload", metadata)
         self.user_data = user_data
         self.local_file_path = os.path.abspath(local_file_path)
@@ -56,7 +69,7 @@ class Upload(Transfer):
     async def initialize(self):
         self.file_hash = await asyncio.to_thread(get_file_md5, self.local_file_path)
 
-        with open(self.local_file_path, 'rb') as f:
+        with open(self.local_file_path, "rb") as f:
             f.seek(0, os.SEEK_END)
             self.file_size = f.tell()
 
@@ -72,14 +85,16 @@ class Upload(Transfer):
 
     def get_file(self):
         if self._file is None:
-            self._file = open(self.local_file_path, 'rb')
+            self._file = open(self.local_file_path, "rb")
         return self._file
 
     async def get_upload_id(self):
         async with self._upload_id_lock:
             if self._upload_id is None:
-                data = await AsyncR2Worker.create_multipart_upload(self.user_data, self.url)
-                self._upload_id = data['uploadId']
+                data = await AsyncR2Worker.create_multipart_upload(
+                    self.user_data, self.url
+                )
+                self._upload_id = data["uploadId"]
         return self._upload_id
 
     async def init_single(self):
@@ -87,13 +102,27 @@ class Upload(Transfer):
 
     async def init_multi(self):
         part_count = math.ceil(self.file_size / UPLOAD_PART_SIZE)
-        logger.info(f"part count: {part_count}, file_size: {self.file_size}, part_size: {UPLOAD_PART_SIZE}")
+        logger.info(
+            f"part count: {part_count}, file_size: {self.file_size}, part_size: {UPLOAD_PART_SIZE}"
+        )
 
         for i in range(part_count - 1):
-            self.work_orders.append(UploadWorkOrder(i * UPLOAD_PART_SIZE, UPLOAD_PART_SIZE, i + 1, self, False))
+            self.work_orders.append(
+                UploadWorkOrder(
+                    i * UPLOAD_PART_SIZE, UPLOAD_PART_SIZE, i + 1, self, False
+                )
+            )
         # add last part seperately
         last_part_offset = (part_count - 1) * UPLOAD_PART_SIZE
-        self.work_orders.append(UploadWorkOrder(last_part_offset, self.file_size - last_part_offset, part_count, self, False))
+        self.work_orders.append(
+            UploadWorkOrder(
+                last_part_offset,
+                self.file_size - last_part_offset,
+                part_count,
+                self,
+                False,
+            )
+        )
 
     async def _on_transfer_ended(self, transfer_success):
         self.get_file().close()
@@ -102,11 +131,22 @@ class Upload(Transfer):
             if len(self.work_orders) > 1:
                 upload_id = await self.get_upload_id()
                 try:
-                    await async_with_retries(AsyncR2Worker.complete_multipart_upload, self.user_data, self.url, upload_id, self.etags, retries=20)
+                    await async_with_retries(
+                        AsyncR2Worker.complete_multipart_upload,
+                        self.user_data,
+                        self.url,
+                        upload_id,
+                        self.etags,
+                        retries=20,
+                    )
                 except Exception as ex:
                     self.status = TRANSFER_STATUS_FAILURE
-                    self.status_text = f"Could not complete upload due to cloudflare error"
-                    logger.error(f"could not complete upload with etags {self.etags}: {ex.args[0]}")
+                    self.status_text = (
+                        f"Could not complete upload due to cloudflare error"
+                    )
+                    logger.error(
+                        f"could not complete upload with etags {self.etags}: {ex.args[0]}"
+                    )
                     return
 
             if self.status != TRANSFER_STATUS_FAILURE:
@@ -122,7 +162,9 @@ class Upload(Transfer):
         else:
             if len(self.work_orders) > 1:
                 upload_id = await self.get_upload_id()
-                await AsyncR2Worker.abort_multipart_upload(self.user_data, self.url, upload_id)
+                await AsyncR2Worker.abort_multipart_upload(
+                    self.user_data, self.url, upload_id
+                )
             await self.run_cleanup()
             self.status = TRANSFER_STATUS_FAILURE
             self.status_text = "Some parts could not be uploaded"
@@ -151,10 +193,10 @@ class Upload(Transfer):
             self.finished_at = time.time()
 
     async def run_job_create(self):
-        frame_end = self.job_info['frame_end']
-        frame_start = self.job_info['frame_start']
-        frame_step = self.job_info['frame_step']
-        batch_size = self.job_info['batch_size']
+        frame_end = self.job_info["frame_end"]
+        frame_start = self.job_info["frame_start"]
+        frame_step = self.job_info["frame_step"]
+        batch_size = self.job_info["batch_size"]
 
         total_frames = frame_end - frame_start + 1
 
@@ -166,40 +208,42 @@ class Upload(Transfer):
         else:
             end = frame_end
 
-        render_format = self.job_info['render_format']
+        render_format = self.job_info["render_format"]
         job_data = {
             "id": self.job_id,
-            "name": self.job_info['name'],
+            "name": self.job_info["name"],
             "status": "queued",
             "start": frame_start,
             "batch_size": batch_size,
             "end": end,
             "frame_step": frame_step,
-            "render_passes": self.job_info['render_passes'],
+            "render_passes": self.job_info["render_passes"],
             "render_format": render_format,
             "version": version,
-            "render_engine": self.job_info['render_engine'],
-            "blender_version": self.job_info['blender_version'],
+            "render_engine": self.job_info["render_engine"],
+            "blender_version": self.job_info["blender_version"],
             "archive_size": self.file_size,
         }
-        if job_data['render_engine'] == "BLENDER_EEVEE_NEXT":
-            job_data['capabilities'] = "eevee"
+        if job_data["render_engine"] == "BLENDER_EEVEE_NEXT":
+            job_data["capabilities"] = "eevee"
         await Sarfis.node_job(
             self.user_data,
             {
                 "job_data": job_data,
                 "operations": get_operations(
-                    os.path.basename(self.job_info['blend_name']),
+                    os.path.basename(self.job_info["blend_name"]),
                     render_format,
-                    self.job_info['max_thumbnail_size'],
+                    self.job_info["max_thumbnail_size"],
                     self.file_hash,
                     frame_step,
-                    self.user_data.api_token
+                    self.user_data.api_token,
                 ),
             },
         )
 
-        webbrowser.open_new(f"{self.user_data.farm_host}/project/{self.job_id}")
+        # webbrowser.open_new(f"{self.user_data.farm_host}/project/{self.job_id}")
+        transfer_manager_url = f"{self.user_data.farm_host}/transfers"
+        webbrowser.open(transfer_manager_url)
 
     async def run_cleanup(self):
         dir_to_delete = os.path.dirname(self.local_file_path)
@@ -219,8 +263,8 @@ class Upload(Transfer):
 
     def to_dict(self):
         d = super().to_dict()
-        d['local_file_path'] = self.local_file_path
-        d['job_id'] = self.job_id
-        d['job_info'] = self.job_info
-        d['parts'] = [i.small_dict() for i in self.work_orders]
+        d["local_file_path"] = self.local_file_path
+        d["job_id"] = self.job_id
+        d["job_info"] = self.job_info
+        d["parts"] = [i.small_dict() for i in self.work_orders]
         return d
