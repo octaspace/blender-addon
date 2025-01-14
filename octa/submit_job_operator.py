@@ -4,6 +4,7 @@ import time
 import os
 import subprocess
 import shutil
+import tempfile
 from pathlib import Path
 from bpy.types import Operator
 from threading import Thread
@@ -39,7 +40,9 @@ DEFAULT_ADDONS = [
 def subprocess_unpacker():
     current_file_path = bpy.data.filepath
     parent_dir = os.path.dirname(current_file_path)
-    folder = os.path.join(parent_dir, f"{int(time.time())}_octa_")
+
+    # Create an actual temporary directory (instead of using parent_dir)
+    folder = tempfile.mkdtemp(prefix=f"{int(time.time())}_octa_")
     print(folder)
     if not os.path.exists(folder):
         print(f"creating {folder}")
@@ -49,7 +52,9 @@ def subprocess_unpacker():
         os.path.join(folder, os.path.basename(current_file_path))
     )
     bpy.ops.wm.save_mainfile()
-    bpy.ops.wm.save_as_mainfile(filepath=temp_blend_name, copy=True, compress=True, relative_remap=False)
+    bpy.ops.wm.save_as_mainfile(
+        filepath=temp_blend_name, copy=True, compress=True, relative_remap=False
+    )
 
     blender_executable = bpy.app.binary_path
 
@@ -305,7 +310,7 @@ class SubmitJobOperator(Operator):
                 suggested_divisions.sort()
                 suggestion = "Choose a different frame range"
                 if suggested_divisions:
-                    suggestion = f'Suggested batch sizes: {", ".join(map(str, suggested_divisions[:5]))}'
+                    suggestion = f"Suggested batch sizes: {', '.join(map(str, suggested_divisions[:5]))}"
 
                 self.report(
                     {"ERROR"},
@@ -394,7 +399,7 @@ class SubmitJobOperator(Operator):
                 metadata,
             )
 
-            # webbrowser.open(f"{user_data['farm_host']}/transfers/{upload_id}")
+            # webbrowser.open(f"{user_data['farm_host']}/transfers/{{upload_id}}")
         except Exception:
             traceback.print_exc()
             self._error_message = "An error occurred while submitting the job."
