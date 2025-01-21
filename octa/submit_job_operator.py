@@ -77,11 +77,15 @@ def subprocess_unpacker():
         os.path.join(folder, os.path.basename(current_file_path))
     )
 
+    was_autopacked = bpy.data.use_autopack
+
+    bpy.data.use_autopack = False
     bpy.ops.wm.save_mainfile()
     with rewrite_volumes_to_absolute():
         bpy.ops.wm.save_as_mainfile(
             filepath=temp_blend_name, copy=True, compress=True, relative_remap=False
         )
+    bpy.data.use_autopack = was_autopacked
     bpy.ops.wm.save_mainfile()
 
     blender_executable = bpy.app.binary_path
