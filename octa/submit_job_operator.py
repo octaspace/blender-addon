@@ -18,6 +18,7 @@ import json
 import zipfile
 import traceback
 from ast import literal_eval
+from contextlib import contextmanager
 
 DEFAULT_ADDONS = [
     "io_anim_bvh",
@@ -37,6 +38,30 @@ DEFAULT_ADDONS = [
 ]
 
 
+@contextmanager
+def rewrite_volumes_to_absolute():
+    """
+    Context manager that temporarily rewrites all volume filepaths to absolute paths,
+    then restores them afterward.
+    """
+    # Store the original filepaths in a dictionary: volume -> original filepath
+    original_filepaths = {}
+    for vol in bpy.data.volumes:
+        original_filepaths[vol] = vol.filepath
+
+    # Convert all volume filepaths to absolute
+    for vol in bpy.data.volumes:
+        vol.filepath = bpy.path.abspath(vol.filepath)
+
+    try:
+        # Yield control back to the caller so they can do their operations
+        yield
+    finally:
+        # Restore the original filepaths
+        for vol, old_path in original_filepaths.items():
+            vol.filepath = old_path
+
+
 def subprocess_unpacker():
     current_file_path = bpy.data.filepath
     parent_dir = os.path.dirname(current_file_path)
@@ -51,10 +76,13 @@ def subprocess_unpacker():
     temp_blend_name = os.path.abspath(
         os.path.join(folder, os.path.basename(current_file_path))
     )
+
     bpy.ops.wm.save_mainfile()
-    bpy.ops.wm.save_as_mainfile(
-        filepath=temp_blend_name, copy=True, compress=True, relative_remap=False
-    )
+    with rewrite_volumes_to_absolute():
+        bpy.ops.wm.save_as_mainfile(
+            filepath=temp_blend_name, copy=True, compress=True, relative_remap=False
+        )
+    bpy.ops.wm.save_mainfile()
 
     blender_executable = bpy.app.binary_path
 
@@ -75,25 +103,24 @@ def subprocess_unpacker():
         shutil.copytree(cache_folder_path, destination_cache_folder)
         print(f"Copied cache folder to: {destination_cache_folder}")
 
-    command = [
-        blender_executable,
-        "-b",
-        current_file_path,
-        "--python",
-        subprocess_unpacker_script,
-        "--factory-startup",
-        "--",
-        "-save_path",
-        temp_blend_name,
-    ]
+    # command = [
+    #     blender_executable,
+    #     "-b",
+    #     current_file_path,
+    #     "--python",
+    #     subprocess_unpacker_script,
+    #     "--factory-startup",
+    #     "--",
+    #     "-save_path",
+    #     temp_blend_name,
+    # ]
 
-    # Run subprocess and raise an error if it fails
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Subprocess unpacker failed with code {result.returncode}\n"
-            f"Stdout: {result.stdout}\nStderr: {result.stderr}"
-        )
+    # result = subprocess.run(command, capture_output=True, text=True)
+    # if result.returncode != 0:
+    #     raise RuntimeError(
+    #         f"Subprocess unpacker failed with code {result.returncode}\n"
+    #         f"Stdout: {result.stdout}\nStderr: {result.stderr}"
+    #     )
 
     return temp_blend_name, folder
 
