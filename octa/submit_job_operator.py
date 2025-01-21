@@ -83,7 +83,7 @@ def subprocess_unpacker():
     bpy.ops.wm.save_mainfile()
     with rewrite_volumes_to_absolute():
         bpy.ops.wm.save_as_mainfile(
-            filepath=temp_blend_name, copy=True, compress=True, relative_remap=False
+            filepath=temp_blend_name, copy=True, compress=True, relative_remap=True
         )
     bpy.data.use_autopack = was_autopacked
     bpy.ops.wm.save_mainfile()
