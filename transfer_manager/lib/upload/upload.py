@@ -34,6 +34,7 @@ class JobInformation(TypedDict):
     name: str
     render_passes: dict
     render_format: str
+    match_scene_format: bool
     render_engine: str
     blender_version: str
     blend_name: str
@@ -219,6 +220,7 @@ class Upload(Transfer):
             "frame_step": frame_step,
             "render_passes": self.job_info["render_passes"],
             "render_format": render_format,
+            "match_scene_format": self.job_info["match_scene_format"],
             "version": version,
             "render_engine": self.job_info["render_engine"],
             "blender_version": self.job_info["blender_version"],
@@ -233,6 +235,7 @@ class Upload(Transfer):
                 "operations": get_operations(
                     os.path.basename(self.job_info["blend_name"]),
                     render_format,
+                    self.job_info["match_scene_format"],
                     self.job_info["max_thumbnail_size"],
                     self.file_hash,
                     frame_step,

@@ -431,6 +431,7 @@ class SubmitJobOperator(Operator):
                     "name": job_properties.job_name,
                     "render_engine": bpy.context.scene.render.engine,
                     "render_format": job_properties.render_format,
+                    "match_scene_format": job_properties.match_scene_format,
                 },
                 user_data,
                 metadata,
