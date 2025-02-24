@@ -44,44 +44,47 @@ def download_unzip(zip_hash: str, api_token: str):
             f"{R2_WORKER_ENDPOINT}/{{job_id}}/input/package.zip?octa_api_token={api_token}",  # TODO: move api token to node variable
             "--hash",
             zip_hash,
-            "--dont-ensure-exists"
+            "--dont-ensure-exists",
         ],
     }
 
 
-def blender(blend_file_name, render_format="PNG", frame_step=1):
+def blender(blend_file_name, render_format=None, frame_step=1):
     frame_start_string = "{job_start + (node_task-job_start) * job_batch_size}"
     frame_end_string = "{job_start + (node_task-job_start+1) * job_batch_size - 1}"
 
     if frame_step > 1:
-        # frame_start_string = "{job_start + (node_task-job_start * job_frame_step)}"
         frame_start_string = "{job_start + ((node_task - job_start) * job_frame_step)}"
-
         frame_end_string = frame_start_string
+
+    variabes = [
+        "-b",
+        "{node_folder}/{job_id}/input/" + blend_file_name,
+        "-y",
+        "-s",
+        frame_start_string,
+        "-e",
+        frame_end_string,
+        "-F",
+        render_format,
+        "-o",
+        '{node_folder}/{job_id}/{str(node_gpu_index).replace(",", "_")}/output/',
+        "-P",
+        "/srv/sarfis-pro-node/assets/scripts/blender/octa.py",  # needs to be absolute path
+        "-a",
+        "--",
+        "-enable_devices",
+        '[{str(node_gpu_index).replace(",", "_")}]',
+    ]
+
+    # if not render_format:
+    #     f_index = variabes.index("-F")
+    #     del variabes[f_index : f_index + 2]
 
     return {
         "operation": "exe",
         "arguments": {"input": '{eval(f"node_{job_blender_version}")}'},
-        "variables": [
-            "-b",
-            "{node_folder}/{job_id}/input/" + blend_file_name,
-            "-y",
-            "-s",
-            frame_start_string,
-            "-e",
-            frame_end_string,
-            "-F",
-            render_format,
-            "-o",
-            '{node_folder}/{job_id}/{str(node_gpu_index).replace(",", "_")}/output/',
-            "-P",
-            "/srv/sarfis-pro-node/assets/scripts/blender/octa.py",  # needs to be absolute path
-            "-a",
-            "--",
-            "-enable_devices",
-            '[{str(node_gpu_index).replace(",", "_")}]',
-            # "{print(frame_start)}",
-        ],
+        "variables": variabes,
     }
 
 
@@ -148,10 +151,7 @@ def stopwatch(action, name):
 def octa_analytics(frame, duration):
     return {
         "operation": "octa_analytics",
-        "arguments": {
-            "frame": frame,
-            "duration": duration
-        }
+        "arguments": {"frame": frame, "duration": duration},
     }
 
 
@@ -183,7 +183,14 @@ def print_input_folder():
     }
 
 
-def get_operations(blend_file_name: str, render_format: str, max_thumbnail_size: int, zip_hash: str, frame_step: int, api_token: str):
+def get_operations(
+    blend_file_name: str,
+    render_format: str,
+    max_thumbnail_size: int,
+    zip_hash: str,
+    frame_step: int,
+    api_token: str,
+):
     return [
         stopwatch("start", "frame"),
         download_unzip(zip_hash, api_token),
@@ -196,5 +203,5 @@ def get_operations(blend_file_name: str, render_format: str, max_thumbnail_size:
         thumbnails(max_size=max_thumbnail_size),
         r2_upload(api_token),
         stopwatch("stop", "frame"),
-        octa_analytics("{node_task}", "{stopwatch_frame}")
+        octa_analytics("{node_task}", "{stopwatch_frame}"),
     ]

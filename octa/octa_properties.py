@@ -18,6 +18,7 @@ class SubmitJobProperties:
     frame_end: int
     frame_step: int
     match_scene: bool
+    match_scene_format: bool
     batch_size: int
     render_output_path: str
     octa_farm_config: str
@@ -72,6 +73,9 @@ class OctaProperties(PropertyGroup):
     )
     match_scene: bpy.props.BoolProperty(
         name="Match Scene", description="Match Scene", default=True
+    )
+    match_scene_format: bpy.props.BoolProperty(
+        name="Match Scene Format", description="Match Scene Format", default=False
     )
     batch_size: bpy.props.IntProperty(
         name="Batch Size", description="Batch Size", default=1, min=1, max=100

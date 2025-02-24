@@ -352,10 +352,16 @@ class SubmitJobOperator(Operator):
             job_properties.advanced_section_visible = (
                 properties.advanced_section_visible
             )
+
             job_properties.generate_video = properties.generate_video
             job_properties.match_scene = properties.match_scene
+            job_properties.match_scene_format = properties.match_scene_format
             job_properties.max_thumbnail_size = properties.max_thumbnail_size
-            job_properties.render_format = properties.render_format
+            job_properties.render_format = (
+                properties.render_format
+                if not properties.match_scene_format
+                else context.scene.render.image_settings.file_format
+            )
             job_properties.render_output_path = properties.render_output_path
             job_properties.upload_threads = properties.upload_threads
             job_properties.batch_size = properties.batch_size

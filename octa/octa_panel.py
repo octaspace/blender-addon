@@ -469,12 +469,6 @@ def display_file_output_info(layout, scene, layer_paths, file_paths):
 
 
 def get_file_paths_from_slots(node, scene, layer_paths, file_paths):
-    IMAGE_TYPE_TO_EXTENSION = {
-        "JPEG": "jpg",
-        "PNG": "png",
-        "OPEN_EXR_MULTILAYER": "exr",
-    }  # Dummy extension map
-
     file_format = node.format.file_format
     slots = (
         node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
@@ -503,12 +497,6 @@ def get_file_paths_from_slots(node, scene, layer_paths, file_paths):
 
 
 def display_file_slots(node_box, node, scene, layer_paths, file_paths):
-    IMAGE_TYPE_TO_EXTENSION = {
-        "JPEG": "jpg",
-        "PNG": "png",
-        "OPEN_EXR_MULTILAYER": "exr",
-    }  # Dummy extension map
-
     file_format = node.format.file_format
     slots = (
         node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
@@ -710,7 +698,15 @@ class OctaPanel(Panel):
         box.use_property_split = True
         box.use_property_decorate = False
         box.prop(properties, "job_name")
-        box.prop(properties, "render_format")
+        row = box.row()
+        row.prop(
+            properties,
+            "match_scene_format",
+            text="Use Scene Output Format",
+        )
+        row = box.row()
+        row.prop(properties, "render_format", text="Output Format")
+        row.enabled = not properties.match_scene_format
 
         box = layout.box()
         box.use_property_split = True
@@ -723,7 +719,7 @@ class OctaPanel(Panel):
         row.prop(
             properties,
             "match_scene",
-            text=f"Match Scene {'Frame' if properties.render_type == 'IMAGE' else 'Frame Range'}",
+            text=f"Use Scene {'Frame' if properties.render_type == 'IMAGE' else 'Frame Range'}",
         )
 
         col = box.column(align=True)
