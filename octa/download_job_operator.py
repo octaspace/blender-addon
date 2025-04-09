@@ -21,8 +21,8 @@ class DownloadJobOperator(bpy.types.Operator):
     bl_description = "Download Job"
     instance = None
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         DownloadJobOperator.instance = self
 
     def validate_properties(self, context) -> Optional[DownloadJobProperties]:

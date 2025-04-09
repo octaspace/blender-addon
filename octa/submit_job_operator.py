@@ -155,7 +155,8 @@ class SubmitJobOperator(Operator):
 
     addons_to_send = []
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._run_thread: Thread = None
 
     @classmethod

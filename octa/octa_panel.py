@@ -364,7 +364,10 @@ class BlenderUITable:
         row_scale=0.8,
         header_scale=0.5,
         column_widths=None,
+        *args,
+        **kwargs,
     ):
+        super().__init__(*args, **kwargs)
         self.layout = layout
         self.headers = headers
         self.header_icons = header_icons or ["NONE"] * len(headers)

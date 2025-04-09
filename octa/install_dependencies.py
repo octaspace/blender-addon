@@ -61,8 +61,8 @@ class InstallDependenciesOperator(bpy.types.Operator):
 
     uninstall: bpy.props.BoolProperty(name="Uninstall", default=False)
 
-    def __init__(self):
-        self._run_thread: Thread = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def check_dependencies_installed(cls):
