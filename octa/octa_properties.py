@@ -33,6 +33,19 @@ class SubmitJobProperties:
 def get_section_toggle_type(name):
     return bpy.props.BoolProperty(name=name, description=name, default=False)
 
+def detect_blender_version():
+    match bpy.app.version:
+        case [4, 1, *_]:
+            return "blender41"
+        case [4, 2, *_]:
+            return "blender42"
+        case [4, 3, *_]:
+            return "blender43"
+        case [4, 4, *_]:
+            return "blender44"
+        case _:
+            return "blender42"
+
 
 class OctaNodeProperties(PropertyGroup):
     def update_multilayer_directory(self):
@@ -148,7 +161,7 @@ class OctaProperties(PropertyGroup):
             ("blender43", "4.3", "4.3"),
             ("blender44", "4.4", "4.4"),
         ],
-        default="blender42",
+        default=detect_blender_version()
     )
 
     max_thumbnail_size: bpy.props.EnumProperty(
