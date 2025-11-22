@@ -45,6 +45,8 @@ def detect_blender_version():
             return "blender44"
         case [4, 5, *_]:
             return "blender45"
+        case [5, 0, *_]:
+            return "blender50"
         case _:
             return "blender42"
 
@@ -163,6 +165,7 @@ class OctaProperties(PropertyGroup):
             ("blender43", "4.3", "4.3"),
             ("blender44", "4.4", "4.4"),
             ("blender45", "4.5", "4.5"),
+            ("blender50", "5.0", "5.0"),
         ],
         default=detect_blender_version()
     )
