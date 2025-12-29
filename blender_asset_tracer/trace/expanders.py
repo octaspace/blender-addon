@@ -23,7 +23,6 @@
 Those can expand data blocks and yield their dependencies (e.g. other data
 blocks necessary to render/display/work with the given data block).
 """
-
 import logging
 import typing
 
@@ -91,7 +90,14 @@ def _expand_generic_mtex(block: blendfile.BlendFileBlock):
 
 
 def _expand_generic_nodetree(block: blendfile.BlendFileBlock):
-    assert block.dna_type.dna_type_id == b"bNodeTree"
+    if block.dna_type.dna_type_id == b"ID":
+        # This is a placeholder for a linked node tree.
+        yield block
+        return
+
+    assert (
+        block.dna_type.dna_type_id == b"bNodeTree"
+    ), f"Expected bNodeTree, got {block.dna_type.dna_type_id.decode()})"
 
     nodes = block.get_pointer((b"nodes", b"first"))
 
@@ -146,7 +152,11 @@ def _expand_generic_idprops(block: blendfile.BlendFileBlock):
 
 
 def _expand_generic_nodetree_id(block: blendfile.BlendFileBlock):
-    block_ntree = block.get_pointer(b"nodetree", None)
+    if block.bfile.header.version >= 500 and block.bfile.file_subversion >= 4:
+        # Introduced in Blender 5.0, commit bd61e69be5a7c96f1e5da1c86aafc17b839e049f
+        block_ntree = block.get_pointer(b"compositing_node_group", None)
+    else:
+        block_ntree = block.get_pointer(b"nodetree", None)
     if block_ntree is not None:
         yield from _expand_generic_nodetree(block_ntree)
 

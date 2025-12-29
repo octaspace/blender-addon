@@ -27,7 +27,7 @@ import logging
 import typing
 
 from .. import blendfile, bpathlib, cdefs
-from ..blendfile.exceptions import SegmentationFault
+from ..blendfile import iterators
 from . import result
 
 log = logging.getLogger(__name__)
@@ -338,7 +338,7 @@ def modifier_dynamic_paint(
 
     surfaces = canvas_settings.get_pointer((b"surfaces", b"first"))
 
-    for surf_idx, surface in enumerate(blendfile.iterators.listbase(surfaces)):
+    for surf_idx, surface in enumerate(iterators.listbase(surfaces)):
         surface_block_name = block_name + b".canvas_settings.surfaces[%d]" % (surf_idx)
         point_cache = surface.get_pointer(b"pointcache")
         if point_cache is None:
@@ -358,27 +358,35 @@ def modifier_dynamic_paint(
 def modifier_nodes(
     ctx: ModifierContext, modifier: blendfile.BlendFileBlock, block_name: bytes
 ) -> typing.Iterator[result.BlockUsage]:
+    if not modifier.has_field(b"simulation_bake_directory"):
+        return
+
     mod_directory_ptr, mod_directory_field = modifier.get(
         b"simulation_bake_directory", return_field=True
     )
-    try:
-        bakes = modifier.get_pointer(b"bakes")
-    except KeyError:
-        return
-    except SegmentationFault:
-        return
+
+    bakes = modifier.get_pointer(b"bakes")
     if not bakes:
         return
 
-    for bake_idx, bake in enumerate(blendfile.iterators.dynamic_array(bakes)):
-        bake_directory_ptr, bake_directory_field = bake.get(
-            b"directory", return_field=True
-        )
+    mod_bake_target = modifier.get(b"bake_target")
+
+    for bake_idx, bake in enumerate(iterators.dynamic_array(bakes)):
+        # Check for packed data.
+        bake_target = bake.get(b"bake_target")
+        if bake_target == cdefs.NODES_MODIFIER_BAKE_TARGET_INHERIT:
+            bake_target = mod_bake_target
+        if bake_target == cdefs.NODES_MODIFIER_BAKE_TARGET_PACKED:
+            # This data is packed in the blend file, it's not a dependency to trace.
+            continue
 
         flag = bake.get(b"flag")
         use_custom_directory = bool(flag & cdefs.NODES_MODIFIER_BAKE_CUSTOM_PATH)
 
         if use_custom_directory:
+            bake_directory_ptr, bake_directory_field = bake.get(
+                b"directory", return_field=True
+            )
             directory_ptr = bake_directory_ptr
             field = bake_directory_field
             block = bake
@@ -393,7 +401,7 @@ def modifier_nodes(
         if not directory:
             continue
 
-        bpath = bytes(directory.as_string(), "utf-8")
+        bpath = bpathlib.BlendPath(directory.as_bytes_string())
         bake_block_name = block_name + b".bakes[%d]" % bake_idx
 
         yield result.BlockUsage(

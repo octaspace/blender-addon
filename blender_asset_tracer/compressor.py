@@ -46,7 +46,7 @@ def _move_or_copy(
     dest: pathlib.Path,
     my_log: logging.Logger,
     *,
-    source_must_remain: bool,
+    source_must_remain: bool
 ):
     """Either move or copy a file, gzip-compressing if not compressed yet.
 

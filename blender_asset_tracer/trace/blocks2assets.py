@@ -119,6 +119,7 @@ def image(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]
 
 
 @dna_code("LI")
+@skip_packed
 def library(block: blendfile.BlendFileBlock) -> typing.Iterator[result.BlockUsage]:
     """Library data blocks."""
     path, field = block.get(b"name", return_field=True)

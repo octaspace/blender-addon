@@ -77,18 +77,21 @@ def dynamic_array(block: BlendFileBlock) -> typing.Iterator[BlendFileBlock]:
     """
     Generator that yields each element of a dynamic array as a separate block.
 
-    Dynamic arrays are multiple contiguous elements accessed via a single pointer.
-    BAT interprets these as a single data block, making it hard to access individual elements.
-    This function divides the array into individual blocks by creating modified copies of the original block.
+    Dynamic arrays are multiple contiguous elements accessed via a single
+    pointer. BAT interprets these as a single data block, making it hard to
+    access individual elements. This function divides the array into individual
+    blocks by creating modified copies of the original block.
+
+    See `some_block.get(b'name', array_index)` if you want to access elements by
+    index (instead of iterating).
     """
 
-    offset = block.file_offset
     element_size = block.dna_type.size
 
-    for i in range(block.count):
-        new_block = copy.copy(block)
-        new_block.file_offset = offset
-        new_block.size = element_size
+    sub_block = copy.copy(block)
+    sub_block.size = element_size
 
-        yield new_block
-        offset += element_size
+    for i in range(block.count):
+        # When sub_block's data is read, it'll be read from this offset in the blend file.
+        sub_block.file_offset = block.file_offset + i * element_size
+        yield sub_block

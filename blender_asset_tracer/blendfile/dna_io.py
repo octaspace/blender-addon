@@ -130,6 +130,20 @@ class EndianIO:
         raise ValueError("unsupported pointer size %d" % pointer_size)
 
     @classmethod
+    def parse_pointer(cls, pointer_data: bytes):
+        """Parse bytes as a pointer value."""
+
+        pointer_size = len(pointer_data)
+        try:
+            typestruct = {
+                4: cls.UINT,
+                8: cls.ULONG,
+            }[pointer_size]
+        except KeyError:
+            raise ValueError("unsupported pointer size %d" % pointer_size)
+        return typestruct.unpack(pointer_data)[0]
+
+    @classmethod
     def write_pointer(cls, fileobj: typing.IO[bytes], pointer_size: int, value: int):
         """Write a pointer to a file."""
 
@@ -190,17 +204,17 @@ class EndianIO:
         return fileobj.write(to_write)
 
     @classmethod
-    def read_bytes0(cls, fileobj, length):
+    def read_bytes0(cls, fileobj: typing.IO[bytes], length: int) -> bytes:
         data = fileobj.read(length)
         return cls.read_data0(data)
 
     @classmethod
-    def read_data0_offset(cls, data, offset):
+    def read_data0_offset(cls, data: bytes, offset: int) -> bytes:
         add = data.find(b"\0", offset) - offset
         return data[offset : offset + add]
 
     @classmethod
-    def read_data0(cls, data):
+    def read_data0(cls, data: bytes) -> bytes:
         add = data.find(b"\0")
         if add < 0:
             return data

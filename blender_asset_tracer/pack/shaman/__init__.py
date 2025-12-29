@@ -31,8 +31,8 @@ import urllib.parse
 
 import requests
 
-import blender_asset_tracer.pack as bat_pack
-import blender_asset_tracer.pack.transfer as bat_transfer
+import .. pack as bat_pack
+import ..pack.transfer as bat_transfer
 
 from .transfer import ShamanTransferrer
 from .client import ShamanClient

@@ -122,18 +122,21 @@ class BlendFile:
         self.filepath = path
         self.raw_filepath = path
         self._is_modified = False
+        self.file_subversion = 0
         self.fileobj = self._open_file(path, mode)
 
         self.blocks = []  # type: BFBList
         """BlendFileBlocks of this file, in disk order."""
 
-        self.code_index = collections.defaultdict(list)  # type: typing.Dict[bytes, BFBList]
+        self.code_index = collections.defaultdict(
+            list
+        )  # type: typing.Dict[bytes, BFBList]
         self.structs = []  # type: typing.List[dna.Struct]
         self.sdna_index_from_id = {}  # type: typing.Dict[bytes, int]
         self.block_from_addr = {}  # type: typing.Dict[int, BlendFileBlock]
 
         self.header = header.BlendFileHeader(self.fileobj, self.raw_filepath)
-        self.block_header_struct = self.header.create_block_header_struct()
+        self.block_header_struct, self.block_header_fields = self.header.create_block_header_struct()
         self._load_blocks()
 
     def _open_file(self, path: pathlib.Path, mode: str) -> typing.IO[bytes]:
@@ -167,6 +170,8 @@ class BlendFile:
 
             if block.code == b"DNA1":
                 self.decode_structs(block)
+            elif block.code == b"GLOB":
+                self.decode_glob(block)
             else:
                 self.fileobj.seek(block.size, os.SEEK_CUR)
 
@@ -354,6 +359,25 @@ class BlendFile:
                 dna_struct.append_field(field)
                 dna_offset += dna_size
 
+    def decode_glob(self, block: "BlendFileBlock") -> None:
+        """Partially decode the GLOB block to get the file sub-version."""
+        # Before this, the subversion didn't exist in 'FileGlobal'.
+        if self.header.version <= 242:
+            self.file_subversion = 0
+            return
+
+        # GLOB can appear in the file before DNA1, and so we cannot use DNA to
+        # parse the fields.
+
+        # The subversion is always the `short` at offset 4.
+        # block_data = io.BytesIO(block.raw_data())
+        endian = self.header.endian
+        self.fileobj.seek(4, os.SEEK_CUR)  # Skip the next 4 bytes.
+        self.file_subversion = endian.read_short(self.fileobj)
+
+        # Skip to the next block.
+        self.fileobj.seek(block.file_offset + block.size, os.SEEK_SET)
+
     def abspath(self, relpath: bpathlib.BlendPath) -> bpathlib.BlendPath:
         """Construct an absolute path from a blendfile-relative path."""
 
@@ -423,6 +447,12 @@ class BlendFileBlock:
     old_structure = struct.Struct(b"4sI")
     """old blend files ENDB block structure"""
 
+    # Explicitly annotate to avoid `Any` from `.unpack()`.
+    size: int
+    addr_old: int
+    sdna_index: int
+    count: int
+
     def __init__(self, bfile: BlendFile) -> None:
         self.bfile = bfile
 
@@ -453,23 +483,13 @@ class BlendFileBlock:
             self.code = b"ENDB"
             return
 
-        # header size can be 8, 20, or 24 bytes long
-        # 8: old blend files ENDB block (exception)
-        # 20: normal headers 32 bit platform
-        # 24: normal headers 64 bit platform
-        if len(data) <= 15:
-            self.log.debug("interpreting block as old-style ENB block")
-            blockheader = self.old_structure.unpack(data)
-            self.code = self.endian.read_data0(blockheader[0])
-            return
-
-        blockheader = header_struct.unpack(data)
-        self.code = self.endian.read_data0(blockheader[0])
+        blockheader = bfile.block_header_fields(*header_struct.unpack(data))
+        self.code = self.endian.read_data0(blockheader.code)
         if self.code != b"ENDB":
-            self.size = blockheader[1]
-            self.addr_old = blockheader[2]
-            self.sdna_index = blockheader[3]
-            self.count = blockheader[4]
+            self.size = blockheader.len
+            self.addr_old = blockheader.old
+            self.sdna_index = blockheader.SDNAnr
+            self.count = blockheader.nr
             self.file_offset = bfile.fileobj.tell()
 
     def __repr__(self) -> str:
@@ -576,6 +596,7 @@ class BlendFileBlock:
         null_terminated=True,
         as_str=False,
         return_field=False,
+        array_index=0,
     ) -> typing.Any:
         """Read a property and return the value.
 
@@ -592,8 +613,20 @@ class BlendFileBlock:
             (assumes UTF-8 encoding).
         :param return_field: When True, returns tuple (dna.Field, value).
             Otherwise just returns the value.
+        :param array_index: If the property is an array, this determines the
+            index of the returned item from that array. Also see
+            `blendfile.iterators.dynamic_array()` for iterating such arrays.
         """
-        self.bfile.fileobj.seek(self.file_offset, os.SEEK_SET)
+        file_offset = self.file_offset
+        if array_index:
+            if not (0 <= array_index < self.count):
+                raise IndexError(
+                    "Invalid 'array_index' for file-block. "
+                    f"Expected int value in range 0-{self.count - 1}, got {array_index}."
+                )
+            file_offset += array_index * self.dna_type.size
+
+        self.bfile.fileobj.seek(file_offset, os.SEEK_SET)
 
         dna_struct = self.bfile.structs[self.sdna_index]
         field, value = dna_struct.field_get(
@@ -613,8 +646,8 @@ class BlendFileBlock:
         self.bfile.fileobj.seek(self.file_offset, os.SEEK_SET)
         return self.bfile.fileobj.read(self.size)
 
-    def as_string(self) -> str:
-        """Interpret the bytes of this datablock as null-terminated utf8 string."""
+    def as_bytes_string(self) -> bytes:
+        """Interpret the bytes of this datablock as null-terminated string of raw bytes."""
         the_bytes = self.raw_data()
         try:
             first_null = the_bytes.index(0)
@@ -622,6 +655,11 @@ class BlendFileBlock:
             pass
         else:
             the_bytes = the_bytes[:first_null]
+        return the_bytes
+
+    def as_string(self) -> str:
+        """Interpret the bytes of this datablock as null-terminated utf8 string."""
+        the_bytes = self.as_bytes_string()
         return the_bytes.decode()
 
     def get_recursive_iter(
@@ -688,7 +726,7 @@ class BlendFileBlock:
             hsh = zlib.adler32(str(value).encode(), hsh)
         return hsh
 
-    def set(self, path: bytes, value):
+    def set(self, path: dna.FieldPath, value):
         dna_struct = self.bfile.structs[self.sdna_index]
         self.bfile.mark_modified()
         self.bfile.fileobj.seek(self.file_offset, os.SEEK_SET)
@@ -797,8 +835,12 @@ class BlendFileBlock:
     def __getitem__(self, path: dna.FieldPath):
         return self.get(path)
 
-    def __setitem__(self, item: bytes, value) -> None:
+    def __setitem__(self, item: dna.FieldPath, value) -> None:
         self.set(item, value)
+
+    def has_field(self, name: bytes) -> bool:
+        dna_struct = self.bfile.structs[self.sdna_index]
+        return dna_struct.has_field(name)
 
     def keys(self) -> typing.Iterator[bytes]:
         """Generator, yields all field names of this block."""

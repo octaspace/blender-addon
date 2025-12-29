@@ -310,7 +310,7 @@ class Struct:
         self,
         file_header: header.BlendFileHeader,
         fileobj: typing.IO[bytes],
-        path: bytes,
+        path: FieldPath,
         value: typing.Any,
     ):
         """Write a value to the blend file.
@@ -319,7 +319,6 @@ class Struct:
         struct on disk (e.g. the start of the BlendFileBlock containing the
         data).
         """
-        assert isinstance(path, bytes), "path should be bytes, but is %s" % type(path)
 
         field, offset = self.field_from_path(file_header.pointer_size, path)
 
