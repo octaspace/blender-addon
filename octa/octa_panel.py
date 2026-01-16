@@ -9,6 +9,7 @@ from .util import (
     get_preferences,
     IMAGE_TYPE_TO_EXTENSION,
     section,
+    get_nodes
 )
 from .icon_manager import IconManager
 
@@ -140,11 +141,13 @@ def get_all_render_output_paths(context):
 
     default_output = "/"
 
-    if not scene.use_nodes:
+    nodes = get_nodes(scene)
+
+    if not nodes:
         render_outputs.append([default_output, None])
     else:
         composite_added = False
-        for node in scene.node_tree.nodes:
+        for node in nodes:
             if node.type == "COMPOSITE" and not composite_added:
                 render_outputs.append([default_output, node])
                 composite_added = True
@@ -162,10 +165,14 @@ class SelectNodeOperator(bpy.types.Operator):
     node_name: bpy.props.StringProperty()
 
     def execute(self, context):
-        node = context.scene.node_tree.nodes.get(self.node_name)
-        for n in context.scene.node_tree.nodes:
+        nodes = get_nodes(context.scene)
+        node = nodes.get(self.node_name)
+        for n in nodes:
             n.select = True if n == node else False
-        context.scene.node_tree.nodes.active = node
+        if hasattr(context.scene, "compositing_node_group") and context.scene.compositing_node_group.nodes:
+            context.scene.compositing_node_group.nodes.active = node
+        else:
+            context.scene.node_tree.nodes.active = node
         return {"FINISHED"}
 
 
@@ -175,7 +182,8 @@ class ToggleNodeMuteOperator(bpy.types.Operator):
     node_name: bpy.props.StringProperty()
 
     def execute(self, context):
-        node = context.scene.node_tree.nodes.get(self.node_name)
+        nodes = get_nodes(context.scene)
+        node = nodes.get(self.node_name)
         node.mute = not node.mute
         return {"FINISHED"}
 
@@ -190,7 +198,7 @@ class ToggleSceneNodesOperator(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        for node in scene.node_tree.nodes:
+        for node in get_nodes(scene):
             if node.type == "R_LAYERS":
                 if node.scene.name == self.scene_name:
                     if (self.rl_name == "") or (node.layer == self.rl_name):
@@ -209,7 +217,7 @@ class ToggleSceneNodesOperator(bpy.types.Operator):
 
 def setup_base_scene_panel(layout, current_scene):
     """Sets up the initial UI elements like checking if nodes are enabled and displaying basic scene information."""
-    if (current_scene.node_tree is None) or (not current_scene.use_nodes):
+    if not get_nodes(current_scene):
         row = layout.row()
         row.label(text=current_scene.name, icon="SCENE_DATA")
         row.prop(current_scene, "use_nodes", text="Use Nodes")
@@ -223,7 +231,7 @@ def setup_base_scene_panel(layout, current_scene):
 def gather_render_nodes(current_scene):
     """Extracts render layer nodes from the current scene's node tree."""
     return set(
-        [node for node in current_scene.node_tree.nodes if node.type == "R_LAYERS"]
+        [node for node in get_nodes(current_scene) if node.type == "R_LAYERS"]
     )
 
 
@@ -333,7 +341,7 @@ def render_output_panel(layout):
 
     check_and_display_errors(layout, scene)
 
-    if scene.node_tree is None:
+    if not get_nodes(scene):
         return
 
     column = layout.column(align=True)
@@ -427,7 +435,7 @@ class BlenderUITable:
 
 def display_composite_node_info(layout, scene):
     composite_nodes = [
-        node for node in scene.node_tree.nodes if node.type == "COMPOSITE"
+        node for node in get_nodes(scene) if node.type == "COMPOSITE"
     ]
 
     if len(composite_nodes) == 0:
@@ -452,7 +460,7 @@ def get_file_paths_from_all_nodes(scene):
     layer_paths = []
     file_paths = []
 
-    for node in scene.node_tree.nodes:
+    for node in get_nodes(scene):
         if node.type == "OUTPUT_FILE":
             layer_paths, file_paths = get_file_paths_from_slots(
                 node, scene, layer_paths, file_paths
@@ -462,7 +470,7 @@ def get_file_paths_from_all_nodes(scene):
 
 
 def display_file_output_info(layout, scene, layer_paths, file_paths):
-    for node in scene.node_tree.nodes:
+    for node in get_nodes(scene):
         if node.type == "OUTPUT_FILE":
             box = layout.box()
             node_section = collapsable_node_section(box, node)
@@ -632,25 +640,27 @@ def use_compositing_suggestion(context, layout):
 
 
 def suggestion_draw(context, layout, suggestion_count=0, draw=True):
-    if not context.scene:
+    if not hasattr(context, "scene"):
         return suggestion_count
 
-    if context.scene.node_tree:
+    nodes = get_nodes(context.scene)
+
+    if nodes:
         denoise_nodes = [
-            node for node in context.scene.node_tree.nodes if node.type == "DENOISE"
+            node for node in nodes if node.type == "DENOISE"
         ]
         if len(denoise_nodes) > 0:
             if draw:
                 denoise_suggestion(layout, denoise_nodes)
             suggestion_count += 1
-    if not context.scene.use_nodes:
+    if not nodes:
         if draw:
             use_nodes_suggestion(context, layout)
         suggestion_count += 1
-    if not context.scene.render.use_compositing:
-        if draw:
-            use_compositing_suggestion(context, layout)
-        suggestion_count += 1
+#    if not context.scene.render.use_compositing:
+#       if draw:
+#            use_compositing_suggestion(context, layout)
+#        suggestion_count += 1
     return suggestion_count
 
 

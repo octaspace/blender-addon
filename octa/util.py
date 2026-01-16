@@ -54,21 +54,27 @@ def get_preferences():
     return preferences
 
 
+def get_nodes(scene):
+    if hasattr(scene, "compositing_node_group") and scene.compositing_node_group: # Blender >= 5
+        return scene.compositing_node_group.nodes
+    else:
+        if hasattr(scene, "node_tree") and scene.use_nodes and scene.node_tree:
+            return scene.node_tree.nodes
+    return []
+
 def get_all_output_file_nodes():
     scene = bpy.context.scene
     output_nodes = []
 
-    if scene.use_nodes and scene.node_tree:
-        for node in scene.node_tree.nodes:
-            # Check for type
-            if node.type == "OUTPUT_FILE":
-                # Skip if no inputs are connected
-                if not node.inputs or not any(inp.is_linked for inp in node.inputs):
-                    continue
-                output_nodes.append(node)
+    for node in get_nodes(scene):
+        # Check for type
+        if node.type == "OUTPUT_FILE":
+            # Skip if no inputs are connected
+            if not node.inputs or not any(inp.is_linked for inp in node.inputs):
+                continue
+            output_nodes.append(node)
 
     return output_nodes
-
 
 def get_all_render_passes():
     output_nodes = get_all_output_file_nodes()
