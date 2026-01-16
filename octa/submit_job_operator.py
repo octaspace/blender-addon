@@ -216,7 +216,8 @@ class SubmitJobOperator(Operator):
 
     def finish(self, context):
         wm = context.window_manager
-        wm.event_timer_remove(self._timer)
+        if self._timer:
+            wm.event_timer_remove(self._timer)
         self._run_thread = None
         if self._error_message:
             self.report({"ERROR"}, self._error_message)
