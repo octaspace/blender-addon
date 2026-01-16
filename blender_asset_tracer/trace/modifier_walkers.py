@@ -27,7 +27,6 @@ import logging
 import typing
 
 from .. import blendfile, bpathlib, cdefs
-from ..blendfile import iterators
 from . import result
 
 log = logging.getLogger(__name__)
@@ -338,7 +337,7 @@ def modifier_dynamic_paint(
 
     surfaces = canvas_settings.get_pointer((b"surfaces", b"first"))
 
-    for surf_idx, surface in enumerate(iterators.listbase(surfaces)):
+    for surf_idx, surface in enumerate(blendfile.iterators.listbase(surfaces)):
         surface_block_name = block_name + b".canvas_settings.surfaces[%d]" % (surf_idx)
         point_cache = surface.get_pointer(b"pointcache")
         if point_cache is None:
@@ -351,63 +350,4 @@ def modifier_dynamic_paint(
 
         yield from _walk_point_cache(
             ctx, surface_block_name, modifier.bfile, point_cache, cdefs.PTCACHE_EXT
-        )
-
-
-@mod_handler(cdefs.eModifierType_Nodes)
-def modifier_nodes(
-    ctx: ModifierContext, modifier: blendfile.BlendFileBlock, block_name: bytes
-) -> typing.Iterator[result.BlockUsage]:
-    if not modifier.has_field(b"simulation_bake_directory"):
-        return
-
-    mod_directory_ptr, mod_directory_field = modifier.get(
-        b"simulation_bake_directory", return_field=True
-    )
-
-    bakes = modifier.get_pointer(b"bakes")
-    if not bakes:
-        return
-
-    mod_bake_target = modifier.get(b"bake_target")
-
-    for bake_idx, bake in enumerate(iterators.dynamic_array(bakes)):
-        # Check for packed data.
-        bake_target = bake.get(b"bake_target")
-        if bake_target == cdefs.NODES_MODIFIER_BAKE_TARGET_INHERIT:
-            bake_target = mod_bake_target
-        if bake_target == cdefs.NODES_MODIFIER_BAKE_TARGET_PACKED:
-            # This data is packed in the blend file, it's not a dependency to trace.
-            continue
-
-        flag = bake.get(b"flag")
-        use_custom_directory = bool(flag & cdefs.NODES_MODIFIER_BAKE_CUSTOM_PATH)
-
-        if use_custom_directory:
-            bake_directory_ptr, bake_directory_field = bake.get(
-                b"directory", return_field=True
-            )
-            directory_ptr = bake_directory_ptr
-            field = bake_directory_field
-            block = bake
-        else:
-            directory_ptr = mod_directory_ptr
-            field = mod_directory_field
-            block = modifier
-
-        if not directory_ptr:
-            continue
-        directory = bake.bfile.dereference_pointer(directory_ptr)
-        if not directory:
-            continue
-
-        bpath = bpathlib.BlendPath(directory.as_bytes_string())
-        bake_block_name = block_name + b".bakes[%d]" % bake_idx
-
-        yield result.BlockUsage(
-            block,
-            bpath,
-            block_name=bake_block_name,
-            path_full_field=field,
-            is_sequence=True,
         )
