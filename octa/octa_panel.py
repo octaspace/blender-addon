@@ -9,7 +9,10 @@ from .util import (
     get_preferences,
     IMAGE_TYPE_TO_EXTENSION,
     section,
-    get_nodes
+    get_nodes,
+    get_file_slots,
+    get_layer_slots,
+    get_slot_path,
 )
 from .icon_manager import IconManager
 
@@ -152,8 +155,8 @@ def get_all_render_output_paths(context):
                 render_outputs.append([default_output, node])
                 composite_added = True
             if node.type == "OUTPUT_FILE":
-                for file_slot in node.file_slots:
-                    file_path = ["/" + file_slot.path, node]
+                for file_slot in get_file_slots(node):
+                    file_path = ["/" + get_slot_path(file_slot), node]
                     render_outputs.append(file_path)
 
     return render_outputs
@@ -482,7 +485,7 @@ def display_file_output_info(layout, scene, layer_paths, file_paths):
 def get_file_paths_from_slots(node, scene, layer_paths, file_paths):
     file_format = node.format.file_format
     slots = (
-        node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
+        get_file_slots(node) if file_format != "OPEN_EXR_MULTILAYER" else get_layer_slots(node)
     )
 
     new_file_paths = []
@@ -490,7 +493,7 @@ def get_file_paths_from_slots(node, scene, layer_paths, file_paths):
     for slot in slots:
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
         if file_format != "OPEN_EXR_MULTILAYER":
-            file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            file_path = f"/{get_slot_path(slot)}/{str(scene.frame_current).zfill(4)}.{file_ext}"
             new_file_paths.append(file_path)
             final_path = file_path
         else:
@@ -510,7 +513,7 @@ def get_file_paths_from_slots(node, scene, layer_paths, file_paths):
 def display_file_slots(node_box, node, scene, layer_paths, file_paths):
     file_format = node.format.file_format
     slots = (
-        node.file_slots if file_format != "OPEN_EXR_MULTILAYER" else node.layer_slots
+        get_file_slots(node) if file_format != "OPEN_EXR_MULTILAYER" else get_layer_slots(node)
     )
 
     node_has_layer_overlaps = False
@@ -519,7 +522,7 @@ def display_file_slots(node_box, node, scene, layer_paths, file_paths):
     for slot in slots:
         file_ext = IMAGE_TYPE_TO_EXTENSION.get(file_format, "unknown")
         if file_format != "OPEN_EXR_MULTILAYER":
-            file_path = f"/{slot.path}/{str(scene.frame_current).zfill(4)}.{file_ext}"
+            file_path = f"/{get_slot_path(slot)}/{str(scene.frame_current).zfill(4)}.{file_ext}"
             if file_paths.count(file_path) > 1:
                 node_has_file_overlaps = True
             final_path = file_path

@@ -6,6 +6,37 @@ import os
 import subprocess
 from typing import TypedDict
 
+# Blender 5.0 renamed file_slots/layer_slots to file_output_items/layer_output_items
+_BLENDER_5 = bpy.app.version >= (5, 0, 0)
+
+
+def get_file_slots(node):
+    """Get file slots from an OUTPUT_FILE node, compatible with Blender 4.x and 5.0+."""
+    if _BLENDER_5:
+        return node.file_output_items
+    return node.file_slots
+
+
+def get_layer_slots(node):
+    """Get layer slots from an OUTPUT_FILE node, compatible with Blender 4.x and 5.0+."""
+    if _BLENDER_5:
+        return node.layer_output_items
+    return node.layer_slots
+
+
+def get_slot_path(slot):
+    """Get the path/name from a file slot, compatible with Blender 4.x and 5.0+."""
+    if _BLENDER_5:
+        return slot.name
+    return slot.path
+
+
+def slot_uses_node_format(slot):
+    """Check if a slot uses the node's format, compatible with Blender 4.x and 5.0+."""
+    if _BLENDER_5:
+        return not slot.override_node_format
+    return slot.use_node_format
+
 IMAGE_TYPE_TO_EXTENSION = {
     "BMP": "bmp",
     "IRIS": "iris",
@@ -86,11 +117,11 @@ def get_all_render_passes():
 
         default_format = node.format.file_format
 
-        for slot in node.file_slots:
+        for slot in get_file_slots(node):
             # Use the node's default format unless the slot specifically
             # overrides it
             format_to_use = (
-                default_format if slot.use_node_format else slot.format.file_format
+                default_format if slot_uses_node_format(slot) else slot.format.file_format
             )
             extension = IMAGE_TYPE_TO_EXTENSION.get(format_to_use, "unknown")
 
@@ -99,7 +130,7 @@ def get_all_render_passes():
                 files["MultiLayer"] = extension
                 break
             else:
-                files[slot.path] = extension
+                files[get_slot_path(slot)] = extension
 
         render_passes[name] = {
             "name": name,
