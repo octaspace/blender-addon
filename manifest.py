@@ -3,7 +3,7 @@ import toml, sys, json, hashlib, zipfile, os
 version = sys.argv[sys.argv.index("--version") + 1]
 version = version.split("/")[-1] if "/" in version else version
 
-addon_directory = "/tmp/OctaRender"
+addon_directory = "dist"
 extension_index = os.path.join(addon_directory, "extensions_index.json")
 blender_manifest = os.path.join(addon_directory, "blender_manifest.toml")
 extension_path = f"{addon_directory}_Extension.zip"
