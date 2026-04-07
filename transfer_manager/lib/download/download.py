@@ -5,6 +5,7 @@ from .download_work_order import DownloadWorkOrder
 from ...apis.r2_worker_shared import R2_WORKER_ENDPOINT
 from ..user_data import UserData
 from typing import List
+from urllib.parse import quote
 import os
 import time
 
@@ -44,7 +45,7 @@ class Download(Transfer):
                     os.makedirs(os.path.join(output_dir, render_pass_output_name), exist_ok=True)
                     for t in range(frame_start, frame_end + 1):
                         file_full_name = f"{str(t).zfill(4)}.{file_ext}"
-                        url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{render_pass_output_name}/{file_full_name}"
+                        url = f"{R2_WORKER_ENDPOINT}/{self.job_id}/output/{quote(render_pass_output_name, safe='/')}/{file_full_name}"
                         local_path = os.path.join(output_dir, render_pass_output_name, file_full_name)
                         add_work_order(url, local_path, f"{render_pass_output_name}/{file_full_name}")
 

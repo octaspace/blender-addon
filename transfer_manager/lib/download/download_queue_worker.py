@@ -1,4 +1,5 @@
 import asyncio
+import os
 import httpx
 from sanic.log import logger
 from traceback import format_exception
@@ -44,6 +45,7 @@ class DownloadQueueWorker(TransferQueueWorker):
                                 logger.warning(msg)
                                 raise Exception(msg)
                             work_order.status_text = "Downloading"
+                            os.makedirs(os.path.dirname(work_order.local_path), exist_ok=True)
                             with open(work_order.local_path, 'wb') as f:
                                 file_size = int(response.headers["Content-Length"])
                                 work_order.progress.set_done_total(response.num_bytes_downloaded, file_size)
